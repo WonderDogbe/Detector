@@ -193,19 +193,22 @@ class RealSensorService {
         }
 
         // 2. Recent readings grouped by station
+        const newMap = new Map<string, SensorReading[]>();
+        this.stations.forEach((st) => newMap.set(st.id, []));
         if (syncData.readings && syncData.readings.length > 0) {
-          const newMap = new Map<string, SensorReading[]>();
           syncData.readings.forEach((r) => {
             const list = newMap.get(r.station_id) || [];
             list.push(r);
             newMap.set(r.station_id, list);
           });
-          newMap.forEach((readings, stId) => {
-            this.readingsByStation.set(stId, readings);
-          });
           this.lastPacketTimestamp =
             syncData.readings[syncData.readings.length - 1].timestamp;
+        } else {
+          this.lastPacketTimestamp = null;
         }
+        newMap.forEach((readings, stId) => {
+          this.readingsByStation.set(stId, readings);
+        });
 
         // 3. Alerts
         if (syncData.alerts) {
@@ -274,6 +277,8 @@ class RealSensorService {
         if (readingsData && readingsData.length > 0) {
           this.readingsByStation.set(st.id, readingsData as SensorReading[]);
           this.lastPacketTimestamp = readingsData[readingsData.length - 1].timestamp;
+        } else {
+          this.readingsByStation.set(st.id, []);
         }
       }
 
