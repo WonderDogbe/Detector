@@ -207,6 +207,9 @@ class RealSensorService {
    */
   private initRealtimeWebSocket(): void {
     if (!supabase) return;
+    if (this.realtimeChannel) {
+      return; // Channel already subscribed
+    }
 
     this.realtimeChannel = supabase
       .channel('realtime:galamsey-guard')
