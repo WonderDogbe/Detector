@@ -103,7 +103,13 @@ class RealSensorService {
       // Fetch live stations via FastAPI
       const stationsData = await apiService.getStations();
       if (stationsData && stationsData.length > 0) {
-        this.stations = stationsData;
+        const uniqueMap = new Map<string, Station>();
+        stationsData.forEach((st) => {
+          if (!uniqueMap.has(st.id)) {
+            uniqueMap.set(st.id, st);
+          }
+        });
+        this.stations = Array.from(uniqueMap.values());
         this.stations.forEach((st) => {
           if (!this.readingsByStation.has(st.id)) {
             this.readingsByStation.set(st.id, []);
@@ -155,7 +161,13 @@ class RealSensorService {
     try {
       const { data: stationsData } = await supabase.from('stations').select('*').order('id');
       if (stationsData && stationsData.length > 0) {
-        this.stations = stationsData as Station[];
+        const uniqueMap = new Map<string, Station>();
+        (stationsData as Station[]).forEach((st) => {
+          if (!uniqueMap.has(st.id)) {
+            uniqueMap.set(st.id, st);
+          }
+        });
+        this.stations = Array.from(uniqueMap.values());
         this.stations.forEach((st) => {
           if (!this.readingsByStation.has(st.id)) {
             this.readingsByStation.set(st.id, []);
