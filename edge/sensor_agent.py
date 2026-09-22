@@ -39,8 +39,10 @@ load_dotenv()
 DEFAULT_STATION_ID = os.getenv("VITE_STATION_ID", "GG-001")
 DEFAULT_STATION_LAT = float(os.getenv("STATION_LAT", "5.4120"))
 DEFAULT_STATION_LNG = float(os.getenv("STATION_LNG", "-1.6210"))
+FASTAPI_GATEWAY_URL = os.getenv("FASTAPI_GATEWAY_URL", "http://localhost:8000/api/v1/telemetry")
 SUPABASE_URL = os.getenv("VITE_SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY", "")
+DEVICE_TOKEN = os.getenv("DEVICE_SECRET_TOKEN", "")
 LOCAL_GATEWAY_URL = os.getenv("LOCAL_GATEWAY_URL", "http://localhost:5000/api/telemetry")
 
 AUDIO_SAMPLE_RATE = 16000  # 16 kHz sampling rate
@@ -338,11 +340,23 @@ def calculate_activity_score(sound_rms: float, dominant_freq: float, vibration_r
 # TELEMETRY DISPATCHER
 # ==============================================================================
 def transmit_reading(reading: dict):
-    """Transmits reading to Supabase REST API or local ingestion gateway."""
+    """Transmits reading to FastAPI Device Gateway, Supabase REST API, or buffers locally."""
     sent = False
 
-    # 1. Primary: Direct Supabase Cloud REST Ingestion
-    if SUPABASE_URL and SUPABASE_KEY:
+    # 1. Primary: FastAPI Device Ingestion Gateway
+    if FASTAPI_GATEWAY_URL:
+        try:
+            headers = {"Content-Type": "application/json"}
+            if DEVICE_TOKEN:
+                headers["X-Device-Token"] = DEVICE_TOKEN
+            res = requests.post(FASTAPI_GATEWAY_URL, headers=headers, json=reading, timeout=3)
+            if res.status_code in (200, 201):
+                sent = True
+        except Exception:
+            pass
+
+    # 2. Secondary: Direct Supabase Cloud REST Ingestion
+    if not sent and SUPABASE_URL and SUPABASE_KEY:
         try:
             headers = {
                 "apikey": SUPABASE_KEY,
@@ -358,8 +372,8 @@ def transmit_reading(reading: dict):
         except Exception as e:
             print(f"[Cloud Sync] Supabase connection error: {e}")
 
-    # 2. Local Gateway relay (if local ingestion server is running)
-    if not sent:
+    # 3. Tertiary: Local Gateway relay
+    if not sent and LOCAL_GATEWAY_URL:
         try:
             res = requests.post(LOCAL_GATEWAY_URL, json=reading, timeout=1.5)
             if res.status_code in (200, 201):
@@ -367,7 +381,7 @@ def transmit_reading(reading: dict):
         except Exception:
             pass
 
-    # 3. If offline, buffer reading locally
+    # 4. If offline, buffer reading locally
     if not sent:
         buffer_reading_locally(reading)
         print(f"[Offline] Cached telemetry packet locally ({reading['station_id']})")
