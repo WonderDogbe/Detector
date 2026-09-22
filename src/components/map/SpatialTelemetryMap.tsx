@@ -168,68 +168,81 @@ export const SpatialTelemetryMap: FC<SpatialTelemetryMapProps> = ({
             />
           </svg>
 
-          {/* STATION NODES (Interactive Pins with Halo Aura) */}
+          {/* STATION NODES (Dynamic Interactive Pins with Halo Aura) */}
+          {stations.map((st, idx) => {
+            const score = getNodeScore(st.id);
+            const isSelected = selectedStationId === st.id;
+            const isHighRisk = score >= 70;
+            const isElevated = score >= 40 && score < 70;
 
-          {/* Node 2: GG-002 (Forest) */}
-          <div
-            style={{ left: '60%', top: '35%' }}
-            onClick={() => onSelectStation('GG-002')}
-            className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-300 ${
-              selectedStationId === 'GG-002' ? 'scale-110 z-20' : 'hover:scale-105 z-10'
-            }`}
-          >
-            {/* Soft Greenish Circular Range Aura */}
-            <div className="absolute -inset-10 rounded-full bg-emerald-100/50 blur-[2px] pointer-events-none" />
-            <div className="relative flex items-center gap-2 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full border border-amber-200/80 shadow-sm">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-              <span className="text-xs font-semibold text-slate-800">
-                GG-002 (Forest)
-              </span>
-              <span className="text-xs font-bold text-amber-600">
-                {getNodeScore('GG-002') || 48}
-              </span>
-            </div>
-          </div>
+            // Coordinates for known nodes, or balanced layout along catchment
+            let pos = { left: '50%', top: '50%' };
+            if (st.id === 'GG-001') pos = { left: '44%', top: '58%' };
+            else if (st.id === 'GG-002') pos = { left: '60%', top: '35%' };
+            else if (st.id === 'GG-003') pos = { left: '26%', top: '68%' };
+            else if (st.id === 'GG-004') pos = { left: '76%', top: '62%' };
+            else {
+              const l = 20 + ((idx * 27) % 60);
+              const t = 35 + ((idx * 19) % 40);
+              pos = { left: `${l}%`, top: `${t}%` };
+            }
 
-          {/* Node 1: GG-001 (River) - High Activity with glowing red aura */}
-          <div
-            style={{ left: '44%', top: '58%' }}
-            onClick={() => onSelectStation('GG-001')}
-            className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-300 ${
-              selectedStationId === 'GG-001' ? 'scale-110 z-30' : 'hover:scale-105 z-20'
-            }`}
-          >
-            {/* Red Risk Detection Aura */}
-            <div className="absolute -inset-8 -inset-x-14 rounded-full bg-rose-200/50 blur-[3px] pointer-events-none animate-pulse" />
-            <div className="relative flex items-center gap-2 bg-white/95 backdrop-blur-sm px-3.5 py-1.5 rounded-full border border-rose-300 shadow-md">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-              <span className="text-xs font-bold text-slate-900">
-                GG-001 (River)
-              </span>
-              <span className="text-xs font-extrabold text-rose-600">
-                {getNodeScore('GG-001') || 76} pts
-              </span>
-            </div>
-          </div>
+            return (
+              <div
+                key={st.id}
+                style={{ left: pos.left, top: pos.top }}
+                onClick={() => onSelectStation(st.id)}
+                className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-300 ${
+                  isSelected ? 'scale-110 z-30' : 'hover:scale-105 z-20'
+                }`}
+              >
+                {/* Aura rings */}
+                {isHighRisk && (
+                  <div className="absolute -inset-8 -inset-x-14 rounded-full bg-rose-200/50 blur-[3px] pointer-events-none animate-pulse" />
+                )}
+                {isElevated && (
+                  <div className="absolute -inset-10 rounded-full bg-amber-100/50 blur-[2px] pointer-events-none" />
+                )}
+                {!isHighRisk && !isElevated && (
+                  <div className="absolute -inset-8 rounded-full bg-emerald-100/40 blur-[2px] pointer-events-none" />
+                )}
 
-          {/* Node 3: GG-003 (Community) */}
-          <div
-            style={{ left: '26%', top: '68%' }}
-            onClick={() => onSelectStation('GG-003')}
-            className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-300 ${
-              selectedStationId === 'GG-003' ? 'scale-110 z-20' : 'hover:scale-105 z-10'
-            }`}
-          >
-            <div className="relative flex items-center gap-2 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full border border-emerald-200/80 shadow-sm">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span className="text-xs font-semibold text-slate-800">
-                GG-003 (Community)
-              </span>
-              <span className="text-xs font-bold text-emerald-600">
-                {getNodeScore('GG-003') || 18}
-              </span>
-            </div>
-          </div>
+                <div
+                  className={`relative flex items-center gap-2 bg-white/95 backdrop-blur-sm px-3.5 py-1.5 rounded-full border shadow-sm ${
+                    isHighRisk
+                      ? 'border-rose-300 shadow-md'
+                      : isElevated
+                      ? 'border-amber-200/80 shadow-xs'
+                      : 'border-emerald-200/80 shadow-xs'
+                  }`}
+                >
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full ${
+                      isHighRisk
+                        ? 'bg-rose-500 animate-pulse'
+                        : isElevated
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500'
+                    }`}
+                  />
+                  <span className="text-xs font-bold text-slate-900">
+                    {getShortName(st)}
+                  </span>
+                  <span
+                    className={`text-xs font-bold ${
+                      isHighRisk
+                        ? 'text-rose-600'
+                        : isElevated
+                        ? 'text-amber-600'
+                        : 'text-emerald-600'
+                    }`}
+                  >
+                    {score} {isHighRisk ? 'pts' : ''}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
 
           {/* Bottom Right Coordinates Pill */}
           <div className="absolute bottom-3 right-4 px-3 py-1 bg-white/90 backdrop-blur-xs rounded-full border border-slate-200/80 text-[11px] font-mono text-slate-500 shadow-2xs flex items-center gap-1.5">

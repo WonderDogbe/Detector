@@ -99,14 +99,25 @@ class RealSensorService {
     });
   }
 
+  private lastApiAttemptTime: number = 0;
+  private isApiDown: boolean = false;
+
   /**
    * Ultra-fast aggregated telemetry synchronization
    */
   public async syncFast(): Promise<void> {
+    // If backend is known to be down, wait 10s before retrying to avoid ECONNREFUSED terminal noise
+    if (this.isApiDown && Date.now() - this.lastApiAttemptTime < 10000) {
+      await this.initDirectSupabaseSync();
+      return;
+    }
+
     try {
+      this.lastApiAttemptTime = Date.now();
       const syncData = await apiService.getDashboardSync();
       if (syncData && syncData.status === 'ONLINE') {
         this.isApiConnected = true;
+        this.isApiDown = false;
 
         // 1. Stations (deduplicated)
         if (syncData.stations && syncData.stations.length > 0) {
@@ -158,7 +169,9 @@ class RealSensorService {
         return;
       }
     } catch {
-      // Fall back to direct Supabase sync if FastAPI endpoint has issues
+      this.isApiDown = true;
+      this.isApiConnected = false;
+      // Fall back directly to Supabase sync
       await this.initDirectSupabaseSync();
     }
   }

@@ -11,8 +11,21 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+        secure: false,
+        configure: (proxy) => {
+          proxy.on('error', (_err, _req, res) => {
+            if (res && 'writeHead' in res && !(res as any).headersSent) {
+              try {
+                (res as any).writeHead(503, { 'Content-Type': 'application/json' });
+                (res as any).end(JSON.stringify({ error: 'Backend gateway offline', fallback: 'supabase' }));
+              } catch {
+                // ignore
+              }
+            }
+          });
+        },
       },
     },
   },
