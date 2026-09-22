@@ -263,11 +263,10 @@ async def get_stations():
     if supabase_client:
         try:
             res = supabase_client.table("stations").select("*").order("id").execute()
-            if res.data and len(res.data) > 0:
-                return res.data
+            return res.data or []  # Always trust the DB — return [] if empty
         except Exception as err:
             print(f"[Supabase Stations Error] {err}")
-    return REGISTERED_STATIONS
+    return []  # No hardcoded fallback
 
 
 @app.post("/api/v1/stations", status_code=status.HTTP_201_CREATED)
