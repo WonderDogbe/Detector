@@ -90,12 +90,13 @@ class DeviceHealthPayload(BaseModel):
 # AUTHENTICATION DEPENDENCY
 # ==============================================================================
 def verify_device_token(x_device_token: Optional[str] = Header(None)):
-    """Verifies device token if DEVICE_SECRET_TOKEN is configured."""
-    if DEVICE_SECRET_TOKEN and x_device_token != DEVICE_SECRET_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing X-Device-Token header",
-        )
+    """Verifies device token if a custom non-default DEVICE_SECRET_TOKEN is configured."""
+    if DEVICE_SECRET_TOKEN and DEVICE_SECRET_TOKEN not in ("device_secret_token_optional", ""):
+        if x_device_token != DEVICE_SECRET_TOKEN:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or missing X-Device-Token header",
+            )
     return True
 
 
