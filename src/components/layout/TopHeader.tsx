@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { FC } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, Plus } from 'lucide-react';
 import type { Station } from '../../types';
 
 interface TopHeaderProps {
@@ -9,6 +9,7 @@ interface TopHeaderProps {
   onSelectStation: (id: string) => void;
   isConnected: boolean;
   activeTabTitle?: string;
+  onOpenAddStation?: () => void;
 }
 
 export const TopHeader: FC<TopHeaderProps> = ({
@@ -17,6 +18,7 @@ export const TopHeader: FC<TopHeaderProps> = ({
   onSelectStation,
   isConnected,
   activeTabTitle = 'Overview',
+  onOpenAddStation,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -95,9 +97,33 @@ export const TopHeader: FC<TopHeaderProps> = ({
                   </button>
                 );
               })}
+              <div className="pt-1.5 mt-1 border-t border-slate-100">
+                <button
+                  onClick={() => {
+                    setIsDropdownOpen(false);
+                    onOpenAddStation?.();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#123c28] hover:bg-emerald-50 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Add New Station</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
+
+        {/* Quick Add Station Button */}
+        {onOpenAddStation && (
+          <button
+            onClick={onOpenAddStation}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#123c28] hover:bg-[#0e2f20] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+            title="Deploy new physical monitoring station"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Station</span>
+          </button>
+        )}
       </div>
 
       {/* Right: Live Stream Status & User Profile */}

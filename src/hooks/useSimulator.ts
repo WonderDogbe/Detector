@@ -86,6 +86,20 @@ export function useSensorFleet(initialStationId?: string) {
     []
   );
 
+  const createStation = useCallback(
+    (stationData: {
+      id: string;
+      device_id: string;
+      name: string;
+      location_name: string;
+      latitude: number;
+      longitude: number;
+    }) => {
+      return simulatorService.createStation(stationData);
+    },
+    []
+  );
+
   const ingestRealReading = useCallback((reading: SensorReading) => {
     simulatorService.ingestRealReading(reading);
   }, []);
@@ -105,6 +119,7 @@ export function useSensorFleet(initialStationId?: string) {
     lastPacketTime,
     updateAlertStatus,
     ingestRealReading,
+    createStation,
     // Backward compatibility aliases
     isRunning: isConnected,
     activeScenario: 'NORMAL' as const,

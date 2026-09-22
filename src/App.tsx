@@ -11,6 +11,7 @@ import { StationFleetStatus } from './components/stations/StationFleetStatus';
 import { StationDetailDashboard } from './components/stations/StationDetailDashboard';
 import { AlertsManager } from './components/alerts/AlertsManager';
 import { HardwareStatusModal } from './components/hardware/HardwareStatusModal';
+import { AddStationModal } from './components/stations/AddStationModal';
 import { Clock, ShieldCheck, Database, Radio, Server } from 'lucide-react';
 
 export function App() {
@@ -28,12 +29,14 @@ export function App() {
     isConnected,
     lastPacketTime,
     updateAlertStatus,
+    createStation,
   } = useSensorFleet();
 
   const [activeTab, setActiveTab] = useState<
     'overview' | 'stations' | 'alerts' | 'history' | 'settings'
   >('overview');
   const [isHardwareModalOpen, setIsHardwareModalOpen] = useState<boolean>(false);
+  const [isAddStationOpen, setIsAddStationOpen] = useState<boolean>(false);
 
   return (
     <div className="min-h-screen bg-[#f1f5f9] text-slate-800 flex font-sans antialiased selection:bg-emerald-800 selection:text-white">
@@ -55,6 +58,7 @@ export function App() {
           onSelectStation={setSelectedStationId}
           isConnected={isConnected}
           activeTabTitle={activeTab}
+          onOpenAddStation={() => setIsAddStationOpen(true)}
         />
 
         {/* Dynamic Main Body Content */}
@@ -316,6 +320,15 @@ export function App() {
         onSelectStation={setSelectedStationId}
         lastPacketTime={lastPacketTime}
         isConnected={isConnected}
+      />
+
+      {/* 4. Deploy New Station Modal */}
+      <AddStationModal
+        isOpen={isAddStationOpen}
+        onClose={() => setIsAddStationOpen(false)}
+        stations={stations}
+        onCreateStation={createStation}
+        onSelectStation={setSelectedStationId}
       />
     </div>
   );

@@ -91,6 +91,16 @@ class UpdateAlertPayload(BaseModel):
     reviewer_notes: Optional[str] = Field(None, description="Operator review notes")
 
 
+class CreateStationPayload(BaseModel):
+    id: str = Field(..., description="Unique Station ID (e.g. GG-004)")
+    device_id: str = Field(..., description="Hardware Identifier (e.g. RPI4-GG-ANKOBRA)")
+    name: str = Field(..., description="Display Name (e.g. Ankobra River Confluence)")
+    location_name: str = Field(..., description="Geographic Basin / Sector")
+    latitude: float = Field(..., description="Station Latitude Coordinate")
+    longitude: float = Field(..., description="Station Longitude Coordinate")
+    status: str = Field("ONLINE", description="ONLINE | OFFLINE | MAINTENANCE")
+
+
 # ==============================================================================
 # AUTHENTICATION DEPENDENCY
 # ==============================================================================
@@ -194,6 +204,51 @@ def system_status():
     }
 
 
+@app.get("/api/v1/dashboard/sync")
+async def get_dashboard_sync():
+    """Ultra-fast aggregated dashboard telemetry payload in a single query."""
+    stations = REGISTERED_STATIONS
+    readings = []
+    alerts = []
+    health = []
+
+    if supabase_client:
+        try:
+            st_res = supabase_client.table("stations").select("*").order("id").execute()
+            if st_res.data and len(st_res.data) > 0:
+                stations = st_res.data
+        except Exception as err:
+            print(f"[Sync Stations Error] {err}")
+
+        try:
+            r_res = supabase_client.table("sensor_readings").select("*").order("timestamp", desc=True).limit(60).execute()
+            readings = r_res.data or []
+            readings.reverse()
+        except Exception as err:
+            print(f"[Sync Readings Error] {err}")
+
+        try:
+            a_res = supabase_client.table("alerts").select("*").order("timestamp", desc=True).limit(50).execute()
+            alerts = a_res.data or []
+        except Exception as err:
+            print(f"[Sync Alerts Error] {err}")
+
+        try:
+            h_res = supabase_client.table("device_health").select("*").order("timestamp", desc=True).limit(20).execute()
+            health = h_res.data or []
+        except Exception as err:
+            print(f"[Sync Health Error] {err}")
+
+    return {
+        "status": "ONLINE",
+        "stations": stations,
+        "readings": readings,
+        "alerts": alerts,
+        "health": health,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @app.get("/api/v1/stations")
 async def get_stations():
     """Returns all registered monitoring stations."""
@@ -205,6 +260,43 @@ async def get_stations():
         except Exception as err:
             print(f"[Supabase Stations Error] {err}")
     return REGISTERED_STATIONS
+
+
+@app.post("/api/v1/stations", status_code=status.HTTP_201_CREATED)
+async def create_station(payload: CreateStationPayload):
+    """Registers a new physical sensor monitoring station in Supabase."""
+    station_id = payload.id.strip().upper()
+    station_data = {
+        "id": station_id,
+        "device_id": payload.device_id.strip(),
+        "name": payload.name.strip(),
+        "location_name": payload.location_name.strip(),
+        "latitude": payload.latitude,
+        "longitude": payload.longitude,
+        "status": payload.status,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if supabase_client:
+        try:
+            # Check for conflict
+            existing = supabase_client.table("stations").select("id").eq("id", station_id).execute()
+            if existing.data and len(existing.data) > 0:
+                raise HTTPException(status_code=400, detail=f"Station with ID '{station_id}' already exists")
+
+            res = supabase_client.table("stations").insert(station_data).execute()
+            if res.data and len(res.data) > 0:
+                print(f"[STATION REGISTERED] {station_id} — {station_data['name']}")
+                return res.data[0]
+        except HTTPException:
+            raise
+        except Exception as err:
+            print(f"[Supabase Create Station Error] {err}")
+            raise HTTPException(status_code=500, detail=f"Failed to register station: {err}")
+
+    # Fallback to in-memory list
+    REGISTERED_STATIONS.append(station_data)
+    return station_data
 
 
 @app.get("/api/v1/readings")

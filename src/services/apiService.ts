@@ -67,10 +67,52 @@ class ApiService {
   }
 
   /**
+   * Ultra-fast aggregated telemetry sync across all stations, readings, alerts, and health
+   */
+  public async getDashboardSync(): Promise<{
+    status: string;
+    stations: Station[];
+    readings: SensorReading[];
+    alerts: any[];
+    health: any[];
+    timestamp: string;
+  }> {
+    return this.request<{
+      status: string;
+      stations: Station[];
+      readings: SensorReading[];
+      alerts: any[];
+      health: any[];
+      timestamp: string;
+    }>('/api/v1/dashboard/sync');
+  }
+
+  /**
    * Fetch all registered telemetry monitoring stations
    */
   public async getStations(): Promise<Station[]> {
     return this.request<Station[]>('/api/v1/stations');
+  }
+
+  /**
+   * Register a new physical sensor monitoring station
+   */
+  public async createStation(station: {
+    id: string;
+    device_id: string;
+    name: string;
+    location_name: string;
+    latitude: number;
+    longitude: number;
+    status?: string;
+  }): Promise<Station> {
+    return this.request<Station>('/api/v1/stations', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...station,
+        status: station.status || 'ONLINE',
+      }),
+    });
   }
 
   /**

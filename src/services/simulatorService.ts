@@ -59,6 +59,17 @@ class LiveSensorProxyService {
     realSensorService.ingestRealReading(reading);
   }
 
+  public createStation(station: {
+    id: string;
+    device_id: string;
+    name: string;
+    location_name: string;
+    latitude: number;
+    longitude: number;
+  }): Promise<Station> {
+    return realSensorService.createStation(station);
+  }
+
   public getLastPacketTimestamp(): string | null {
     return realSensorService.getLastPacketTimestamp();
   }

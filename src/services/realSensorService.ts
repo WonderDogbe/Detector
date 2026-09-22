@@ -54,6 +54,7 @@ class RealSensorService {
   private isConnected: boolean = false;
   private isApiConnected: boolean = false;
   private lastPacketTimestamp: string | null = null;
+  private syncIntervalId: any = null;
 
   constructor() {
     this.stations.forEach((st) => {
@@ -69,8 +70,18 @@ class RealSensorService {
       });
     });
 
-    // Initialize FastAPI and Supabase synchronization
-    this.initDataSync();
+    // 1. Immediately launch Realtime WebSocket (non-blocking)
+    if (isSupabaseConfigured && supabase) {
+      this.initRealtimeWebSocket();
+    }
+
+    // 2. Initial rapid aggregated data sync
+    this.syncFast();
+
+    // 3. Fast high-frequency background sync (every 2.5 seconds)
+    this.syncIntervalId = setInterval(() => {
+      this.syncFast();
+    }, 2500);
   }
 
   public subscribe(listener: Listener): () => void {
@@ -89,72 +100,71 @@ class RealSensorService {
   }
 
   /**
-   * Initializes data synchronization from FastAPI Gateway and Supabase Realtime
+   * Ultra-fast aggregated telemetry synchronization
    */
-  private async initDataSync(): Promise<void> {
-    // 1. First attempt to load initial data via FastAPI Gateway
+  public async syncFast(): Promise<void> {
     try {
-      const statusRes = await apiService.getSystemStatus();
-      if (statusRes && statusRes.status === 'ONLINE') {
+      const syncData = await apiService.getDashboardSync();
+      if (syncData && syncData.status === 'ONLINE') {
         this.isApiConnected = true;
-        console.info('[GalamseyGuard] Connected to FastAPI Gateway:', statusRes.version);
-      }
 
-      // Fetch live stations via FastAPI
-      const stationsData = await apiService.getStations();
-      if (stationsData && stationsData.length > 0) {
-        const uniqueMap = new Map<string, Station>();
-        stationsData.forEach((st) => {
-          if (!uniqueMap.has(st.id)) {
-            uniqueMap.set(st.id, st);
-          }
-        });
-        this.stations = Array.from(uniqueMap.values());
-        this.stations.forEach((st) => {
-          if (!this.readingsByStation.has(st.id)) {
-            this.readingsByStation.set(st.id, []);
-          }
-        });
-      }
-
-      // Fetch historical readings for each station via FastAPI
-      for (const st of this.stations) {
-        const readingsData = await apiService.getReadings(st.id, 50);
-        if (readingsData && readingsData.length > 0) {
-          this.readingsByStation.set(st.id, readingsData);
-          this.lastPacketTimestamp = readingsData[readingsData.length - 1].timestamp;
+        // 1. Stations (deduplicated)
+        if (syncData.stations && syncData.stations.length > 0) {
+          const uniqueMap = new Map<string, Station>();
+          syncData.stations.forEach((st) => {
+            if (!uniqueMap.has(st.id)) uniqueMap.set(st.id, st);
+          });
+          this.stations = Array.from(uniqueMap.values());
         }
-      }
 
-      // Fetch alerts via FastAPI
-      const alertsData = await apiService.getAlerts();
-      if (alertsData && alertsData.length > 0) {
-        this.alerts = alertsData;
-      }
-
-      // Fetch health via FastAPI
-      for (const st of this.stations) {
-        const healthData = await apiService.getStationHealth(st.id);
-        if (healthData && healthData.battery_level !== undefined) {
-          this.healthByStation.set(st.id, healthData);
+        // 2. Recent readings grouped by station
+        if (syncData.readings && syncData.readings.length > 0) {
+          const newMap = new Map<string, SensorReading[]>();
+          syncData.readings.forEach((r) => {
+            const list = newMap.get(r.station_id) || [];
+            list.push(r);
+            newMap.set(r.station_id, list);
+          });
+          newMap.forEach((readings, stId) => {
+            this.readingsByStation.set(stId, readings);
+          });
+          this.lastPacketTimestamp =
+            syncData.readings[syncData.readings.length - 1].timestamp;
         }
-      }
 
-      this.isConnected = true;
-      this.notify();
-    } catch (apiErr) {
-      console.warn('[GalamseyGuard] FastAPI initial sync warning (falling back to direct Supabase):', apiErr);
+        // 3. Alerts
+        if (syncData.alerts) {
+          this.alerts = syncData.alerts.map((row: any) => ({
+            ...row,
+            snapshot_readings: {
+              sound_rms: Number(row.snapshot_sound_rms || 0),
+              dominant_frequency: Number(row.snapshot_dominant_freq || 0),
+              vibration_rms: Number(row.snapshot_vibration_rms || 0),
+              rain_detected: Boolean(row.snapshot_rain),
+              temperature: 28,
+            },
+          }));
+        }
+
+        // 4. Device Health
+        if (syncData.health) {
+          syncData.health.forEach((h: DeviceHealth) => {
+            this.healthByStation.set(h.station_id, h);
+          });
+        }
+
+        this.isConnected = true;
+        this.notify();
+        return;
+      }
+    } catch {
+      // Fall back to direct Supabase sync if FastAPI endpoint has issues
       await this.initDirectSupabaseSync();
-    }
-
-    // 2. Connect Supabase Realtime WebSocket for instant streaming updates
-    if (isSupabaseConfigured && supabase) {
-      this.initRealtimeWebSocket();
     }
   }
 
   /**
-   * Fallback to direct Supabase REST client if FastAPI is unavailable
+   * Fallback to direct Supabase REST client
    */
   private async initDirectSupabaseSync(): Promise<void> {
     if (!supabase) return;
@@ -234,6 +244,18 @@ class RealSensorService {
       )
       .on(
         'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'stations' },
+        (payload) => {
+          const newStation = payload.new as Station;
+          if (!this.stations.some((s) => s.id === newStation.id)) {
+            this.stations = [...this.stations, newStation];
+            this.readingsByStation.set(newStation.id, []);
+            this.notify();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'alerts' },
         (payload) => {
           this.handleIncomingAlert(payload.new as any);
@@ -259,6 +281,56 @@ class RealSensorService {
         this.isConnected = status === 'SUBSCRIBED' || this.isApiConnected;
         this.notify();
       });
+  }
+
+  /**
+   * Create and register a new station
+   */
+  public async createStation(station: {
+    id: string;
+    device_id: string;
+    name: string;
+    location_name: string;
+    latitude: number;
+    longitude: number;
+  }): Promise<Station> {
+    const newStation: Station = {
+      ...station,
+      id: station.id.trim().toUpperCase(),
+      status: 'ONLINE',
+      created_at: new Date().toISOString(),
+    };
+
+    // Optimistically update in memory
+    if (!this.stations.some((s) => s.id === newStation.id)) {
+      this.stations = [...this.stations, newStation];
+      this.readingsByStation.set(newStation.id, []);
+      this.healthByStation.set(newStation.id, {
+        station_id: newStation.id,
+        timestamp: new Date().toISOString(),
+        device_status: 'HEALTHY',
+        network_status: '4G LTE',
+        battery_level: 100,
+        solar_charging: true,
+        uptime_seconds: 0,
+      });
+      this.notify();
+    }
+
+    try {
+      const created = await apiService.createStation(newStation);
+      await this.syncFast();
+      return created;
+    } catch (err) {
+      console.warn('[GalamseyGuard] FastAPI station creation warning:', err);
+      if (isSupabaseConfigured && supabase) {
+        const { data } = await supabase.from('stations').insert(newStation).select();
+        if (data && data.length > 0) {
+          return data[0] as Station;
+        }
+      }
+      return newStation;
+    }
   }
 
   /**
@@ -411,8 +483,13 @@ class RealSensorService {
   }
 
   public cleanup(): void {
+    if (this.syncIntervalId) {
+      clearInterval(this.syncIntervalId);
+      this.syncIntervalId = null;
+    }
     if (this.realtimeChannel && supabase) {
       supabase.removeChannel(this.realtimeChannel);
+      this.realtimeChannel = null;
     }
   }
 }
