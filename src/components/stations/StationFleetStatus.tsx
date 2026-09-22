@@ -18,7 +18,8 @@ export const StationFleetStatus: FC<StationFleetStatusProps> = ({
 
   const getStationInfo = (st: Station) => {
     const reading = allLatestReadings[st.id];
-    const score = reading?.activity_score ?? (st.id === 'GG-001' ? 76 : st.id === 'GG-002' ? 48 : 18);
+    const hasReading = Boolean(reading);
+    const score = hasReading ? (reading!.activity_score ?? 0) : null;
 
     let title = `${st.id} (${st.name.replace('Station', '').trim()})`;
     if (st.id === 'GG-001') title = 'GG-001 (River Area)';
@@ -30,12 +31,17 @@ export const StationFleetStatus: FC<StationFleetStatusProps> = ({
     let dotClass = 'bg-emerald-500';
     let containerClass = 'bg-slate-50/50 hover:bg-slate-100/70 border-slate-200/60';
 
-    if (score >= 70) {
+    if (!hasReading) {
+      statusLabel = 'Online (Standby)';
+      statusClass = 'text-slate-500';
+      dotClass = 'bg-slate-400';
+      containerClass = 'bg-slate-50/40 hover:bg-slate-100/60 border-slate-200/60';
+    } else if (score !== null && score >= 70) {
       statusLabel = 'High Activity Alert';
       statusClass = 'text-rose-600 font-semibold';
       dotClass = 'bg-rose-500';
       containerClass = 'bg-rose-50/40 border-rose-200/80 hover:bg-rose-50/70';
-    } else if (score >= 40) {
+    } else if (score !== null && score >= 40) {
       statusLabel = 'Elevated Baseline';
       statusClass = 'text-amber-600';
       dotClass = 'bg-amber-500';
@@ -43,10 +49,9 @@ export const StationFleetStatus: FC<StationFleetStatusProps> = ({
     }
 
     // Relative packet time
-    const timeAgo = reading?.timestamp
-      ? Math.max(1, Math.round((Date.now() - new Date(reading.timestamp).getTime()) / 1000))
-      : (st.id === 'GG-001' ? 3 : st.id === 'GG-002' ? 6 : 2);
-    const timeAgoStr = `${timeAgo}s ago`;
+    const timeAgoStr = reading?.timestamp
+      ? `${Math.max(1, Math.round((Date.now() - new Date(reading.timestamp).getTime()) / 1000))}s ago`
+      : 'Standby';
 
     return {
       title,
@@ -93,7 +98,7 @@ export const StationFleetStatus: FC<StationFleetStatusProps> = ({
                   </span>
                 </div>
                 <span className="text-xs font-bold text-slate-900">
-                  {info.score} <span className="font-normal text-slate-500">Score</span>
+                  {info.score !== null ? info.score : '—'} <span className="font-normal text-slate-500">Score</span>
                 </span>
               </div>
 

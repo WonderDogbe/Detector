@@ -11,27 +11,33 @@ export const LiveSensorStream: FC<LiveSensorStreamProps> = ({
   station,
   reading,
 }) => {
+  const hasReading = Boolean(reading);
+
   // Sound metrics
-  const soundRmsPct = Math.round((reading?.sound_rms ?? 0.72) * 100);
+  const soundRmsPct = hasReading ? Math.round(reading!.sound_rms * 100) : null;
   let soundBadge = { text: 'Normal', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-  if (soundRmsPct >= 65) {
+  if (!hasReading) {
+    soundBadge = { text: 'Standby', bg: 'bg-slate-50 text-slate-500 border-slate-200' };
+  } else if (soundRmsPct !== null && soundRmsPct >= 65) {
     soundBadge = { text: 'High', bg: 'bg-rose-50 text-rose-600 border-rose-200' };
-  } else if (soundRmsPct >= 40) {
+  } else if (soundRmsPct !== null && soundRmsPct >= 40) {
     soundBadge = { text: 'Elevated', bg: 'bg-amber-50 text-amber-700 border-amber-200' };
   }
 
   // Vibration metrics
-  const vibRmsPct = Math.round((reading?.vibration_rms ?? 0.43) * 100);
+  const vibRmsPct = hasReading ? Math.round(reading!.vibration_rms * 100) : null;
   let vibBadge = { text: 'Low', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-  if (vibRmsPct >= 50) {
+  if (!hasReading) {
+    vibBadge = { text: 'Standby', bg: 'bg-slate-50 text-slate-500 border-slate-200' };
+  } else if (vibRmsPct !== null && vibRmsPct >= 50) {
     vibBadge = { text: 'Critical', bg: 'bg-rose-50 text-rose-600 border-rose-200' };
-  } else if (vibRmsPct >= 25) {
+  } else if (vibRmsPct !== null && vibRmsPct >= 25) {
     vibBadge = { text: 'Elevated', bg: 'bg-amber-50 text-amber-700 border-amber-200' };
   }
 
   // Weather metrics
-  const temp = reading?.temperature ? reading.temperature.toFixed(1) : '27.4';
-  const humidity = reading?.humidity ? Math.round(reading.humidity) : 78;
+  const temp = hasReading && reading?.temperature !== undefined ? reading.temperature.toFixed(1) : null;
+  const humidity = hasReading && reading?.humidity !== undefined ? Math.round(reading.humidity) : null;
   const isRain = reading?.rain_detected ?? false;
 
   // GPS metrics
@@ -68,9 +74,11 @@ export const LiveSensorStream: FC<LiveSensorStreamProps> = ({
           <div className="my-3">
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-display font-bold text-slate-900">
-                {soundRmsPct}%
+                {soundRmsPct !== null ? `${soundRmsPct}%` : '—'}
               </span>
-              <span className="text-xs font-semibold text-slate-400 uppercase">RMS</span>
+              {soundRmsPct !== null && (
+                <span className="text-xs font-semibold text-slate-400 uppercase">RMS</span>
+              )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               Sound (INMP441)
@@ -92,9 +100,11 @@ export const LiveSensorStream: FC<LiveSensorStreamProps> = ({
           <div className="my-3">
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-display font-bold text-slate-900">
-                {vibRmsPct}%
+                {vibRmsPct !== null ? `${vibRmsPct}%` : '—'}
               </span>
-              <span className="text-xs font-semibold text-slate-400 uppercase">RMS</span>
+              {vibRmsPct !== null && (
+                <span className="text-xs font-semibold text-slate-400 uppercase">RMS</span>
+              )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               Vibration (MPU6050)
@@ -110,21 +120,23 @@ export const LiveSensorStream: FC<LiveSensorStreamProps> = ({
               <span className="text-xs font-medium text-slate-600">thermostat</span>
             </div>
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
-              isRain
+              !hasReading
+                ? 'bg-slate-50 text-slate-500 border-slate-200'
+                : isRain
                 ? 'bg-blue-50 text-blue-700 border-blue-200'
                 : 'bg-emerald-50 text-emerald-700 border-emerald-200'
             }`}>
-              {isRain ? 'Rain Active' : 'No Rain'}
+              {!hasReading ? 'Standby' : isRain ? 'Rain Active' : 'No Rain'}
             </span>
           </div>
           <div className="my-3">
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-display font-bold text-slate-900">
-                {temp}°C
+                {temp !== null ? `${temp}°C` : '—'}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              {humidity}% RH (BME280)
+              {humidity !== null ? `${humidity}% RH (BME280)` : 'Atmospheric (BME280)'}
             </p>
           </div>
         </div>

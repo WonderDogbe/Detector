@@ -47,6 +47,10 @@ class LiveSensorProxyService {
     return realSensorService.isConnectedToStream();
   }
 
+  public hasLoaded(): boolean {
+    return realSensorService.hasLoaded();
+  }
+
   public updateAlertStatus(
     alertId: string,
     status: AlertStatus,

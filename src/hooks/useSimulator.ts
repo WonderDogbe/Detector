@@ -73,6 +73,12 @@ export function useSensorFleet(initialStationId?: string) {
     [version]
   );
 
+  const hasLoaded = useMemo(
+    () => simulatorService.hasLoaded(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version]
+  );
+
   const lastPacketTime = useMemo(
     () => simulatorService.getLastPacketTimestamp(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,6 +122,7 @@ export function useSensorFleet(initialStationId?: string) {
     unreviewedAlertsCount,
     health,
     isConnected,
+    hasLoaded,
     lastPacketTime,
     updateAlertStatus,
     ingestRealReading,

@@ -44,6 +44,8 @@ export const REGISTERED_STATIONS: Station[] = [
   },
 ];
 
+const CACHE_STORAGE_KEY = 'galamseyguard_telemetry_cache_v2';
+
 class RealSensorService {
   private stations: Station[] = [...REGISTERED_STATIONS];
   private readingsByStation: Map<string, SensorReading[]> = new Map();
@@ -53,6 +55,7 @@ class RealSensorService {
   private realtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
   private isConnected: boolean = false;
   private isApiConnected: boolean = false;
+  private hasInitialData: boolean = false;
   private lastPacketTimestamp: string | null = null;
   private syncIntervalId: any = null;
 
@@ -70,18 +73,79 @@ class RealSensorService {
       });
     });
 
-    // 1. Immediately launch Realtime WebSocket (non-blocking)
+    // 1. Immediately restore cached snapshot from localStorage so page refresh has zero delay & zero mock flash
+    this.restoreFromCache();
+
+    // 2. Launch Realtime WebSocket (non-blocking)
     if (isSupabaseConfigured && supabase) {
       this.initRealtimeWebSocket();
     }
 
-    // 2. Initial rapid aggregated data sync
+    // 3. Initial rapid aggregated data sync
     this.syncFast();
 
-    // 3. Fast high-frequency background sync (every 2.5 seconds)
+    // 4. Fast high-frequency background sync (every 2.5 seconds)
     this.syncIntervalId = setInterval(() => {
       this.syncFast();
     }, 2500);
+  }
+
+  private restoreFromCache(): void {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(CACHE_STORAGE_KEY) : null;
+      if (!raw) return;
+      const cached = JSON.parse(raw);
+      if (cached && cached.stations && Array.isArray(cached.stations) && cached.stations.length > 0) {
+        this.stations = cached.stations;
+        if (cached.readings) {
+          Object.entries(cached.readings).forEach(([stId, list]: [string, any]) => {
+            if (Array.isArray(list)) {
+              this.readingsByStation.set(stId, list);
+            }
+          });
+        }
+        if (Array.isArray(cached.alerts)) {
+          this.alerts = cached.alerts;
+        }
+        if (cached.health) {
+          Object.entries(cached.health).forEach(([stId, h]: [string, any]) => {
+            this.healthByStation.set(stId, h);
+          });
+        }
+        if (cached.lastPacketTimestamp) {
+          this.lastPacketTimestamp = cached.lastPacketTimestamp;
+        }
+        this.hasInitialData = true;
+        this.isConnected = true;
+      }
+    } catch (e) {
+      console.warn('[GalamseyGuard] Cache restore notice:', e);
+    }
+  }
+
+  private saveToCache(): void {
+    try {
+      if (typeof window === 'undefined') return;
+      const readingsObj: Record<string, SensorReading[]> = {};
+      this.readingsByStation.forEach((readings, id) => {
+        readingsObj[id] = readings.slice(-50);
+      });
+      const healthObj: Record<string, DeviceHealth> = {};
+      this.healthByStation.forEach((h, id) => {
+        healthObj[id] = h;
+      });
+      const snapshot = {
+        stations: this.stations,
+        readings: readingsObj,
+        alerts: this.alerts,
+        health: healthObj,
+        lastPacketTimestamp: this.lastPacketTimestamp,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // Ignore storage errors (quota/incognito)
+    }
   }
 
   public subscribe(listener: Listener): () => void {
@@ -165,6 +229,8 @@ class RealSensorService {
         }
 
         this.isConnected = true;
+        this.hasInitialData = true;
+        this.saveToCache();
         this.notify();
         return;
       }
@@ -231,10 +297,16 @@ class RealSensorService {
       }
 
       this.isConnected = true;
+      this.hasInitialData = true;
+      this.saveToCache();
       this.notify();
     } catch (err) {
       console.error('[GalamseyGuard] Direct Supabase sync error:', err);
     }
+  }
+
+  public hasLoaded(): boolean {
+    return this.hasInitialData;
   }
 
   /**

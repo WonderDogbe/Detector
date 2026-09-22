@@ -52,15 +52,18 @@ export const ExecutiveKpis: FC<ExecutiveKpisProps> = ({
   }
 
   // 3. Sound metrics for selected station
-  const soundRmsPct = Math.round((selectedReading?.sound_rms ?? 0) * 100);
+  const hasReading = Boolean(selectedReading);
+  const soundRmsPct = hasReading ? Math.round(selectedReading!.sound_rms * 100) : null;
   const dominantFreq = selectedReading?.dominant_frequency
     ? selectedReading.dominant_frequency.toFixed(1)
     : '0.0';
 
   let soundBadge = { text: 'Normal Baseline', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-  if (soundRmsPct >= 65) {
+  if (!hasReading) {
+    soundBadge = { text: 'Standby', bg: 'bg-slate-50 text-slate-600 border-slate-200' };
+  } else if (soundRmsPct !== null && soundRmsPct >= 65) {
     soundBadge = { text: 'Heavy Signature', bg: 'bg-amber-50 text-amber-700 border-amber-200' };
-  } else if (soundRmsPct >= 40) {
+  } else if (soundRmsPct !== null && soundRmsPct >= 40) {
     soundBadge = { text: 'Elevated Audio', bg: 'bg-amber-50 text-amber-700 border-amber-200' };
   }
 
@@ -133,9 +136,11 @@ export const ExecutiveKpis: FC<ExecutiveKpisProps> = ({
         <div className="my-3 flex items-baseline justify-between">
           <div className="flex items-baseline gap-1">
             <span className="text-3xl font-display font-bold text-slate-900">
-              {soundRmsPct}%
+              {soundRmsPct !== null ? `${soundRmsPct}%` : '—'}
             </span>
-            <span className="text-slate-400 font-medium text-xs uppercase">RMS</span>
+            {soundRmsPct !== null && (
+              <span className="text-slate-400 font-medium text-xs uppercase">RMS</span>
+            )}
           </div>
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${soundBadge.bg}`}>
             {soundBadge.text}

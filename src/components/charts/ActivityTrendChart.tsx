@@ -20,7 +20,8 @@ export const ActivityTrendChart: FC<ActivityTrendChartProps> = ({
   stationId,
 }) => {
   // Format real readings for chart
-  const chartData = historicalReadings.length > 0
+  const hasHistory = historicalReadings.length > 0;
+  const chartData = hasHistory
     ? historicalReadings.slice(-15).map((r, i) => {
         const timeStr = r.timestamp
           ? new Date(r.timestamp).toLocaleTimeString([], {
@@ -43,18 +44,15 @@ export const ActivityTrendChart: FC<ActivityTrendChartProps> = ({
         };
       })
     : [
-        { time: '10:00', compositeScore: 18, sensorAvg: 20 },
-        { time: '11:00', compositeScore: 22, sensorAvg: 21 },
-        { time: '12:00', compositeScore: 25, sensorAvg: 23 },
-        { time: '13:00', compositeScore: 35, sensorAvg: 28 },
-        { time: '14:00', compositeScore: 54, sensorAvg: 38 },
-        { time: 'Live', compositeScore: 76, sensorAvg: 46 },
+        { time: '6h ago', compositeScore: 0, sensorAvg: 0 },
+        { time: '4h ago', compositeScore: 0, sensorAvg: 0 },
+        { time: '2h ago', compositeScore: 0, sensorAvg: 0 },
+        { time: 'Now', compositeScore: 0, sensorAvg: 0 },
       ];
 
-  const currentScore =
-    chartData.length > 0
-      ? chartData[chartData.length - 1].compositeScore
-      : 76;
+  const currentScore = hasHistory
+    ? chartData[chartData.length - 1].compositeScore
+    : 0;
 
   return (
     <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
@@ -87,7 +85,7 @@ export const ActivityTrendChart: FC<ActivityTrendChartProps> = ({
         {/* Floating current score badge in top right of chart like screenshot */}
         <div className="absolute top-2 right-4 z-10">
           <div className="px-2.5 py-1 rounded-md bg-slate-900 text-white text-xs font-mono font-bold shadow-sm">
-            Score: {currentScore}
+            Score: {hasHistory ? currentScore : '—'}
           </div>
         </div>
 

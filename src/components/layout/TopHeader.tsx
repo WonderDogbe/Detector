@@ -53,7 +53,7 @@ export const TopHeader: FC<TopHeaderProps> = ({
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-xs font-semibold text-slate-700 transition-all cursor-pointer shadow-xs"
           >
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span className={`w-2 h-2 rounded-full ${selectedStation?.status === 'ONLINE' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
             <span>
               {selectedStation?.id} {selectedStation?.name}
             </span>
