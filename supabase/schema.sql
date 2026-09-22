@@ -5,29 +5,7 @@
 -- https://supabase.com/dashboard/project/_/sql/new
 -- ==============================================================================
 
--- 1. STATIONS TABLE
-CREATE TABLE IF NOT EXISTS public.stations (
-    id VARCHAR(50) PRIMARY KEY, -- e.g., 'GG-001'
-    device_id VARCHAR(100) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL,
-    location_name VARCHAR(255) NOT NULL,
-    latitude DOUBLE PRECISION NOT NULL,
-    longitude DOUBLE PRECISION NOT NULL,
-    status VARCHAR(50) DEFAULT 'ONLINE' CHECK (status IN ('ONLINE', 'OFFLINE', 'MAINTENANCE')),
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 2. SENSOR READINGS TABLE (Time-series Telemetry)
-CREATE TABLE IF NOT EXISTS public.sensor_readings (
-    id BIGSERIAL PRIMARY KEY,
-    station_id VARCHAR(50) REFERENCES public.stations(id) ON DELETE CASCADE,
-    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    sound_rms NUMERIC(6, 3) NOT NULL, -- 0.000 to 1.000
-    dominant_frequency NUMERIC(6, 1) NOT NULL, -- In Hertz (e.g. 118.4 Hz)
-    vibration_rms NUMERIC(6, 3) NOT NULL, -- 0.000 to 1.000
-    temperature NUMERIC(4, 1) NOT NULL, -- In °C (e.g. 27.4)
-    humidity NUMERIC(4, 1) NOT NULL, -- In % (e.g. 78.0)
-    pressure NUMERIC(6, 1) NOT NULL, -- In hPa (e.g. 1012.2)
+J    pressure NUMERIC(6, 1) NOT NULL, -- In hPa (e.g. 1012.2)
     rain_detected BOOLEAN DEFAULT FALSE,
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,

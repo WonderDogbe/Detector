@@ -44,10 +44,10 @@ export const REGISTERED_STATIONS: Station[] = [
   },
 ];
 
-const CACHE_STORAGE_KEY = 'galamseyguard_telemetry_cache_v2';
+const CACHE_STORAGE_KEY = 'galamseyguard_telemetry_cache_v3';
 
 class RealSensorService {
-  private stations: Station[] = [...REGISTERED_STATIONS];
+  private stations: Station[] = []; // Populated exclusively from DB — never hardcoded
   private readingsByStation: Map<string, SensorReading[]> = new Map();
   private alerts: Alert[] = [];
   private healthByStation: Map<string, DeviceHealth> = new Map();
@@ -60,18 +60,7 @@ class RealSensorService {
   private syncIntervalId: any = null;
 
   constructor() {
-    this.stations.forEach((st) => {
-      this.readingsByStation.set(st.id, []);
-      this.healthByStation.set(st.id, {
-        station_id: st.id,
-        timestamp: new Date().toISOString(),
-        device_status: 'HEALTHY',
-        network_status: '4G LTE',
-        battery_level: 100,
-        solar_charging: true,
-        uptime_seconds: 0,
-      });
-    });
+    // No hardcoded stations — all data comes from Supabase/FastAPI
 
     // 1. Immediately restore cached snapshot from localStorage so page refresh has zero delay & zero mock flash
     this.restoreFromCache();
@@ -183,10 +172,10 @@ class RealSensorService {
         this.isApiConnected = true;
         this.isApiDown = false;
 
-        // 1. Stations (deduplicated)
-        if (syncData.stations && syncData.stations.length > 0) {
+        // 1. Stations — always replace from DB (even if empty, to clear stale data)
+        {
           const uniqueMap = new Map<string, Station>();
-          syncData.stations.forEach((st) => {
+          (syncData.stations || []).forEach((st) => {
             if (!uniqueMap.has(st.id)) uniqueMap.set(st.id, st);
           });
           this.stations = Array.from(uniqueMap.values());
@@ -252,19 +241,19 @@ class RealSensorService {
     if (!supabase) return;
     try {
       const { data: stationsData } = await supabase.from('stations').select('*').order('id');
-      if (stationsData && stationsData.length > 0) {
+      // Always replace stations from DB — even empty response clears stale in-memory data
+      {
         const uniqueMap = new Map<string, Station>();
-        (stationsData as Station[]).forEach((st) => {
-          if (!uniqueMap.has(st.id)) {
-            uniqueMap.set(st.id, st);
-          }
+        (stationsData as Station[] || []).forEach((st) => {
+          if (!uniqueMap.has(st.id)) uniqueMap.set(st.id, st);
         });
         this.stations = Array.from(uniqueMap.values());
+        // Reset readings map to match current station list exactly
+        const newReadingsMap = new Map<string, SensorReading[]>();
         this.stations.forEach((st) => {
-          if (!this.readingsByStation.has(st.id)) {
-            this.readingsByStation.set(st.id, []);
-          }
+          newReadingsMap.set(st.id, this.readingsByStation.get(st.id) || []);
         });
+        this.readingsByStation = newReadingsMap;
       }
 
       for (const st of this.stations) {
