@@ -9,8 +9,8 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: #09090b;
-    color: #f4f4f5;
+    background-color: #f1f5f9;
+    color: #0f172a;
     overflow-x: hidden;
     letter-spacing: -0.01em;
   }
@@ -31,14 +31,14 @@
   height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: #f1f5f9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #94a3b8;
 }
 
 /* Natural Monochrome Glassmorphism Cards */
