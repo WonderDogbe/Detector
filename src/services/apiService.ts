@@ -116,6 +116,25 @@ class ApiService {
   }
 
   /**
+   * Update station metadata, name, location, and parameters
+   */
+  public async updateStation(
+    stationId: string,
+    updates: {
+      name?: string;
+      location_name?: string;
+      latitude?: number;
+      longitude?: number;
+      status?: string;
+    }
+  ): Promise<Station> {
+    return this.request<Station>(`/api/v1/stations/${encodeURIComponent(stationId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  /**
    * Fetch historical sensor readings for a station
    */
   public async getReadings(

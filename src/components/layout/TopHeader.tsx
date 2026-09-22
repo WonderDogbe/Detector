@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { FC } from 'react';
-import { ChevronDown, Check, Plus } from 'lucide-react';
+import { ChevronDown, Check, Plus, Edit3 } from 'lucide-react';
 import type { Station } from '../../types';
 
 interface TopHeaderProps {
@@ -10,6 +10,7 @@ interface TopHeaderProps {
   isConnected: boolean;
   activeTabTitle?: string;
   onOpenAddStation?: () => void;
+  onOpenConfigureStation?: (stationId: string) => void;
 }
 
 export const TopHeader: FC<TopHeaderProps> = ({
@@ -19,6 +20,7 @@ export const TopHeader: FC<TopHeaderProps> = ({
   isConnected,
   activeTabTitle = 'Overview',
   onOpenAddStation,
+  onOpenConfigureStation,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -112,6 +114,18 @@ export const TopHeader: FC<TopHeaderProps> = ({
             </div>
           )}
         </div>
+
+        {/* Configure / Rename Active Station */}
+        {onOpenConfigureStation && selectedStation && (
+          <button
+            onClick={() => onOpenConfigureStation(selectedStation.id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-xs font-semibold text-slate-700 transition-all cursor-pointer shadow-xs"
+            title={`Configure or rename ${selectedStation.id}`}
+          >
+            <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+            <span className="hidden md:inline">Configure</span>
+          </button>
+        )}
 
         {/* Quick Add Station Button */}
         {onOpenAddStation && (

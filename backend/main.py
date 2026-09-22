@@ -66,9 +66,9 @@ class SensorReadingPayload(BaseModel):
     sound_db: Optional[float] = Field(None, description="Sound level in Decibels")
     dominant_frequency: float = Field(..., ge=0.0, description="FFT spectral peak in Hertz")
     vibration_rms: float = Field(..., ge=0.0, le=1.0, description="Tri-axial resultant vibration RMS")
-    temperature: float = Field(..., description="Ambient temperature in °C")
-    humidity: float = Field(..., ge=0.0, le=100.0, description="Relative humidity %")
-    pressure: float = Field(..., description="Barometric pressure in hPa")
+    temperature: float = Field(28.0, description="Ambient temperature in °C")
+    humidity: float = Field(70.0, ge=0.0, le=100.0, description="Relative humidity %")
+    pressure: float = Field(1013.25, description="Barometric pressure in hPa")
     rain_detected: bool = Field(False, description="Rain sensor digital detection state")
     latitude: float = Field(..., description="GPS Latitude")
     longitude: float = Field(..., description="GPS Longitude")
@@ -99,6 +99,14 @@ class CreateStationPayload(BaseModel):
     latitude: float = Field(..., description="Station Latitude Coordinate")
     longitude: float = Field(..., description="Station Longitude Coordinate")
     status: str = Field("ONLINE", description="ONLINE | OFFLINE | MAINTENANCE")
+
+
+class UpdateStationPayload(BaseModel):
+    name: Optional[str] = Field(None, description="Updated Station Display Name")
+    location_name: Optional[str] = Field(None, description="Updated Geographic Basin / Sector")
+    latitude: Optional[float] = Field(None, description="Updated Latitude Coordinate")
+    longitude: Optional[float] = Field(None, description="Updated Longitude Coordinate")
+    status: Optional[str] = Field(None, description="ONLINE | OFFLINE | MAINTENANCE")
 
 
 # ==============================================================================
@@ -299,6 +307,58 @@ async def create_station(payload: CreateStationPayload):
     return station_data
 
 
+@app.patch("/api/v1/stations/{station_id}")
+async def update_station(station_id: str, payload: UpdateStationPayload):
+    """Updates display name, geographic location, coordinates, or status of a monitoring station."""
+    clean_id = station_id.strip().upper()
+    update_data = {}
+    if payload.name is not None and payload.name.strip():
+        update_data["name"] = payload.name.strip()
+    if payload.location_name is not None and payload.location_name.strip():
+        update_data["location_name"] = payload.location_name.strip()
+    if payload.latitude is not None:
+        update_data["latitude"] = float(payload.latitude)
+    if payload.longitude is not None:
+        update_data["longitude"] = float(payload.longitude)
+    if payload.status is not None:
+        update_data["status"] = payload.status
+
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields provided for update")
+
+    if supabase_client:
+        try:
+            res = (
+                supabase_client.table("stations")
+                .update(update_data)
+                .eq("id", clean_id)
+                .execute()
+            )
+            if res.data and len(res.data) > 0:
+                print(f"[STATION UPDATED] {clean_id}: {update_data}")
+                return res.data[0]
+            else:
+                # If not found in supabase, try inserting
+                update_data["id"] = clean_id
+                update_data["device_id"] = f"RPI4-NODE-{clean_id}"
+                insert_res = supabase_client.table("stations").insert(update_data).execute()
+                if insert_res.data and len(insert_res.data) > 0:
+                    return insert_res.data[0]
+        except Exception as err:
+            print(f"[Supabase Update Station Error] {err}")
+            raise HTTPException(status_code=500, detail=str(err))
+
+    # Update in-memory fallback
+    for st in REGISTERED_STATIONS:
+        if st["id"] == clean_id:
+            st.update(update_data)
+            return st
+
+    new_st = {"id": clean_id, **update_data}
+    REGISTERED_STATIONS.append(new_st)
+    return new_st
+
+
 @app.get("/api/v1/readings")
 async def get_readings(station_id: Optional[str] = None, limit: int = 50):
     """Returns historical sensor readings with optional station filter."""
@@ -415,6 +475,25 @@ async def ingest_sensor_reading(
 
     # Insert into Supabase
     if supabase_client:
+        # Auto-detect: if station does not exist yet, automatically register it in stations table
+        try:
+            st_check = supabase_client.table("stations").select("id").eq("id", payload.station_id).execute()
+            if not st_check.data or len(st_check.data) == 0:
+                auto_station = {
+                    "id": payload.station_id,
+                    "device_id": f"RPI-AUTO-{payload.station_id}",
+                    "name": f"New Station ({payload.station_id})",
+                    "location_name": "Awaiting Location Tag",
+                    "latitude": payload.latitude if payload.latitude != 0.0 else 5.4120,
+                    "longitude": payload.longitude if payload.longitude != 0.0 else -1.6210,
+                    "status": "ONLINE",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+                supabase_client.table("stations").insert(auto_station).execute()
+                print(f"[AUTO-DETECT] Discovered & registered new Raspberry Pi station: {payload.station_id}")
+        except Exception as auto_err:
+            print(f"[Auto-detect Station Notice] {auto_err}")
+
         try:
             res = supabase_client.table("sensor_readings").insert(reading_dict).execute()
         except Exception as err:
@@ -471,6 +550,23 @@ async def ingest_device_health(
     }
 
     if supabase_client:
+        try:
+            st_check = supabase_client.table("stations").select("id").eq("id", payload.station_id).execute()
+            if not st_check.data or len(st_check.data) == 0:
+                auto_station = {
+                    "id": payload.station_id,
+                    "device_id": f"RPI-AUTO-{payload.station_id}",
+                    "name": f"New Station ({payload.station_id})",
+                    "location_name": "Awaiting Location Tag",
+                    "latitude": 5.4120,
+                    "longitude": -1.6210,
+                    "status": "ONLINE",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+                supabase_client.table("stations").insert(auto_station).execute()
+        except Exception:
+            pass
+
         try:
             supabase_client.table("device_health").insert(health_dict).execute()
         except Exception as err:

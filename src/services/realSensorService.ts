@@ -341,6 +341,16 @@ class RealSensorService {
       )
       .on(
         'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'stations' },
+        (payload) => {
+          const updated = payload.new as Station;
+          this.stations = this.stations.map((s) => (s.id === updated.id ? { ...s, ...updated } : s));
+          this.saveToCache();
+          this.notify();
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'alerts' },
         (payload) => {
           this.handleIncomingAlert(payload.new as any);
@@ -419,6 +429,66 @@ class RealSensorService {
       }
       return newStation;
     }
+  }
+
+  /**
+   * Update station information (name, location, coordinates, status)
+   */
+  public async updateStation(
+    stationId: string,
+    updates: {
+      name?: string;
+      location_name?: string;
+      latitude?: number;
+      longitude?: number;
+      status?: string;
+    }
+  ): Promise<Station | null> {
+    // Optimistically update in memory
+    let updatedStation: Station | null = null;
+    this.stations = this.stations.map((s) => {
+      if (s.id === stationId) {
+        const merged: Station = {
+          ...s,
+          ...updates,
+          status: (updates.status as Station['status']) || s.status,
+        };
+        updatedStation = merged;
+        return merged;
+      }
+      return s;
+    });
+
+    this.saveToCache();
+    this.notify();
+
+    // Call API service
+    try {
+      const res = await apiService.updateStation(stationId, updates);
+      if (res) {
+        this.stations = this.stations.map((s) => (s.id === stationId ? { ...s, ...res } : s));
+        this.saveToCache();
+        this.notify();
+        return res;
+      }
+    } catch (err) {
+      console.warn('[GalamseyGuard] FastAPI updateStation warning, attempting Supabase direct:', err);
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase
+          .from('stations')
+          .update(updates)
+          .eq('id', stationId)
+          .select();
+        if (!error && data && data.length > 0) {
+          const directUpdated = data[0] as Station;
+          this.stations = this.stations.map((s) => (s.id === stationId ? directUpdated : s));
+          this.saveToCache();
+          this.notify();
+          return directUpdated;
+        }
+      }
+    }
+    return updatedStation;
   }
 
   /**

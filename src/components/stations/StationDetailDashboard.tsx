@@ -5,6 +5,7 @@ import {
   Radio,
   Cpu,
   AlertTriangle,
+  Edit3,
 } from 'lucide-react';
 import type {
   Station,
@@ -28,6 +29,7 @@ interface StationDetailDashboardProps {
   onSelectStation: (stationId: string) => void;
   onOpenScenarios?: () => void;
   onOpenHardware?: () => void;
+  onOpenConfigure?: () => void;
 }
 
 export const StationDetailDashboard: FC<StationDetailDashboardProps> = ({
@@ -41,6 +43,7 @@ export const StationDetailDashboard: FC<StationDetailDashboardProps> = ({
   onBackToFleet,
   onSelectStation,
   onOpenHardware,
+  onOpenConfigure,
 }) => {
   const stationAlerts = alerts.filter((a) => a.station_id === station.id);
   const score = reading?.activity_score || 0;
@@ -82,7 +85,7 @@ export const StationDetailDashboard: FC<StationDetailDashboardProps> = ({
         </div>
 
         {/* Station switcher & quick actions */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           {/* Quick station dropdown */}
           <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs">
             <MapPin className="w-3.5 h-3.5 text-zinc-400" />
@@ -98,6 +101,18 @@ export const StationDetailDashboard: FC<StationDetailDashboardProps> = ({
               ))}
             </select>
           </div>
+
+          {/* Configure Station button */}
+          {onOpenConfigure && (
+            <button
+              onClick={onOpenConfigure}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 transition-colors cursor-pointer"
+              title="Configure station name, coordinates, and location"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Configure Station</span>
+            </button>
+          )}
 
           {/* Hardware Diagnostics modal trigger */}
           <button

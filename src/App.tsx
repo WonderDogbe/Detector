@@ -12,6 +12,9 @@ import { StationDetailDashboard } from './components/stations/StationDetailDashb
 import { AlertsManager } from './components/alerts/AlertsManager';
 import { HardwareStatusModal } from './components/hardware/HardwareStatusModal';
 import { AddStationModal } from './components/stations/AddStationModal';
+import { ConfigureStationModal } from './components/stations/ConfigureStationModal';
+import { DetectedStationBanner } from './components/stations/DetectedStationBanner';
+import type { Station } from './types';
 import { Clock, ShieldCheck, Database, Radio, Server } from 'lucide-react';
 
 export function App() {
@@ -30,6 +33,7 @@ export function App() {
     lastPacketTime,
     updateAlertStatus,
     createStation,
+    updateStation,
   } = useSensorFleet();
 
   const [activeTab, setActiveTab] = useState<
@@ -37,6 +41,20 @@ export function App() {
   >('overview');
   const [isHardwareModalOpen, setIsHardwareModalOpen] = useState<boolean>(false);
   const [isAddStationOpen, setIsAddStationOpen] = useState<boolean>(false);
+  const [isConfigureOpen, setIsConfigureOpen] = useState<boolean>(false);
+  const [stationToConfigure, setStationToConfigure] = useState<Station | null>(null);
+
+  const handleOpenConfigure = (target?: string | Station) => {
+    if (!target) {
+      setStationToConfigure(selectedStation || stations[0] || null);
+    } else if (typeof target === 'string') {
+      const found = stations.find((s) => s.id === target);
+      setStationToConfigure(found || selectedStation || null);
+    } else {
+      setStationToConfigure(target);
+    }
+    setIsConfigureOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-[#f1f5f9] text-slate-800 flex font-sans antialiased selection:bg-emerald-800 selection:text-white">
@@ -59,10 +77,16 @@ export function App() {
           isConnected={isConnected}
           activeTabTitle={activeTab}
           onOpenAddStation={() => setIsAddStationOpen(true)}
+          onOpenConfigureStation={handleOpenConfigure}
         />
 
         {/* Dynamic Main Body Content */}
         <main className="flex-1 p-6 sm:p-8 space-y-6 max-w-[1600px] w-full mx-auto">
+          {/* Edge Station Auto-Detected Banner (Alerts whenever physical Pi transmits) */}
+          <DetectedStationBanner
+            stations={stations}
+            onConfigureStation={handleOpenConfigure}
+          />
           {/* TAB 1: OVERVIEW — Exact Format from User's Screenshot */}
           {activeTab === 'overview' && (
             <div className="space-y-6 animate-fade-in">
@@ -118,6 +142,7 @@ export function App() {
                     onSelectStation={setSelectedStationId}
                     allLatestReadings={allLatestReadings}
                     onOpenAddStation={() => setIsAddStationOpen(true)}
+                    onConfigureStation={handleOpenConfigure}
                   />
                 </div>
               </div>
@@ -138,6 +163,7 @@ export function App() {
                 onBackToFleet={() => setActiveTab('overview')}
                 onSelectStation={(id) => setSelectedStationId(id)}
                 onOpenHardware={() => setIsHardwareModalOpen(true)}
+                onOpenConfigure={() => handleOpenConfigure(selectedStation)}
               />
             </div>
           )}
@@ -330,6 +356,14 @@ export function App() {
         stations={stations}
         onCreateStation={createStation}
         onSelectStation={setSelectedStationId}
+      />
+
+      {/* 5. Configure / Rename Station Modal */}
+      <ConfigureStationModal
+        isOpen={isConfigureOpen}
+        onClose={() => setIsConfigureOpen(false)}
+        station={stationToConfigure}
+        onUpdateStation={updateStation}
       />
     </div>
   );

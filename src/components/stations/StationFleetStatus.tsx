@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Edit3 } from 'lucide-react';
 import type { Station, SensorReading } from '../../types';
 
 interface StationFleetStatusProps {
@@ -8,6 +8,7 @@ interface StationFleetStatusProps {
   onSelectStation: (stationId: string) => void;
   allLatestReadings: Record<string, SensorReading | undefined>;
   onOpenAddStation?: () => void;
+  onConfigureStation?: (station: Station) => void;
 }
 
 export const StationFleetStatus: FC<StationFleetStatusProps> = ({
@@ -16,6 +17,7 @@ export const StationFleetStatus: FC<StationFleetStatusProps> = ({
   onSelectStation,
   allLatestReadings,
   onOpenAddStation,
+  onConfigureStation,
 }) => {
   const onlineCount = stations.filter((s) => s.status === 'ONLINE').length;
 
@@ -84,6 +86,10 @@ export const StationFleetStatus: FC<StationFleetStatusProps> = ({
         {stations.map((st) => {
           const info = getStationInfo(st);
           const isSelected = st.id === selectedStationId;
+          const isAutoDetected =
+            st.name.startsWith('New Station') ||
+            st.location_name.includes('Awaiting') ||
+            st.location_name.includes('Auto-detected');
 
           return (
             <div
@@ -94,15 +100,36 @@ export const StationFleetStatus: FC<StationFleetStatusProps> = ({
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${info.dotClass}`} />
-                  <span className="text-xs font-bold text-slate-900">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${info.dotClass}`} />
+                  <span className="text-xs font-bold text-slate-900 truncate">
                     {info.title}
                   </span>
+                  {isAutoDetected && (
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                      New Pi
+                    </span>
+                  )}
                 </div>
-                <span className="text-xs font-bold text-slate-900">
-                  {info.score !== null ? info.score : '—'} <span className="font-normal text-slate-500">Score</span>
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs font-bold text-slate-900">
+                    {info.score !== null ? info.score : '—'}{' '}
+                    <span className="font-normal text-slate-500">Score</span>
+                  </span>
+                  {onConfigureStation && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onConfigureStation(st);
+                      }}
+                      className="p-1 rounded-md text-slate-400 hover:text-[#123c28] hover:bg-slate-200/70 transition-colors cursor-pointer"
+                      title={`Configure or rename ${st.id}`}
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 pl-4">

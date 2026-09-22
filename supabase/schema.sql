@@ -96,6 +96,12 @@ ALTER TABLE public.device_health ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read access on stations" ON public.stations;
 CREATE POLICY "Allow public read access on stations" ON public.stations FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Allow public insert on stations" ON public.stations;
+CREATE POLICY "Allow public insert on stations" ON public.stations FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public update on stations" ON public.stations;
+CREATE POLICY "Allow public update on stations" ON public.stations FOR UPDATE USING (true) WITH CHECK (true);
+
 DROP POLICY IF EXISTS "Allow public read access on sensor_readings" ON public.sensor_readings;
 CREATE POLICY "Allow public read access on sensor_readings" ON public.sensor_readings FOR SELECT USING (true);
 
