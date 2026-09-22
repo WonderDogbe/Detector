@@ -1,6 +1,8 @@
 -- ==============================================================================
 -- GalamseyGuard — PostgreSQL / Supabase Schema Definition
--- IoT-Based Environmental Activity Monitoring Prototype
+-- IoT Environmental Activity & Machinery Pattern Detection System
+-- Run this entire script in your Supabase SQL Editor:
+-- https://supabase.com/dashboard/project/_/sql/new
 -- ==============================================================================
 
 -- 1. STATIONS TABLE
@@ -15,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.stations (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. SENSOR READINGS TABLE (Timescale / Time-series Telemetry)
+-- 2. SENSOR READINGS TABLE (Time-series Telemetry)
 CREATE TABLE IF NOT EXISTS public.sensor_readings (
     id BIGSERIAL PRIMARY KEY,
     station_id VARCHAR(50) REFERENCES public.stations(id) ON DELETE CASCADE,
@@ -75,7 +77,7 @@ CREATE TABLE IF NOT EXISTS public.device_health (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Seed Data for Initial Prototype Stations
+-- 5. SEED DATA FOR INITIAL PROTOTYPE STATIONS
 INSERT INTO public.stations (id, device_id, name, location_name, latitude, longitude, status)
 VALUES
     ('GG-001', 'RPI4-GG-PRABASIN', 'Pra River Sector Alpha', 'Pra River Basin — Lower Reach', 5.4120, -1.6210, 'ONLINE'),
@@ -83,8 +85,68 @@ VALUES
     ('GG-003', 'RPI4-GG-TARKCOMM', 'Tarkwa Community Perimeter', 'Tarkwa North Buffer Zone', 5.3120, -1.9880, 'ONLINE')
 ON CONFLICT (id) DO NOTHING;
 
--- Enable Realtime for all tables in Supabase replication publication
-ALTER PUBLICATION supabase_realtime ADD TABLE public.stations;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.sensor_readings;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.alerts;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.device_health;
+-- 6. ROW LEVEL SECURITY (RLS) POLICIES
+-- Enable RLS on all tables
+ALTER TABLE public.stations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sensor_readings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.device_health ENABLE ROW LEVEL SECURITY;
+
+-- Allow public read access (anon key) for dashboard display
+DROP POLICY IF EXISTS "Allow public read access on stations" ON public.stations;
+CREATE POLICY "Allow public read access on stations" ON public.stations FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public read access on sensor_readings" ON public.sensor_readings;
+CREATE POLICY "Allow public read access on sensor_readings" ON public.sensor_readings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public read access on alerts" ON public.alerts;
+CREATE POLICY "Allow public read access on alerts" ON public.alerts FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public read access on device_health" ON public.device_health;
+CREATE POLICY "Allow public read access on device_health" ON public.device_health FOR SELECT USING (true);
+
+-- Allow telemetry insertion (from FastAPI gateway or Raspberry Pi)
+DROP POLICY IF EXISTS "Allow telemetry insert on sensor_readings" ON public.sensor_readings;
+CREATE POLICY "Allow telemetry insert on sensor_readings" ON public.sensor_readings FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow device health insert on device_health" ON public.device_health;
+CREATE POLICY "Allow device health insert on device_health" ON public.device_health FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow alert insert on alerts" ON public.alerts;
+CREATE POLICY "Allow alert insert on alerts" ON public.alerts FOR INSERT WITH CHECK (true);
+
+-- Allow operators to update alert verification status
+DROP POLICY IF EXISTS "Allow alert update on alerts" ON public.alerts;
+CREATE POLICY "Allow alert update on alerts" ON public.alerts FOR UPDATE USING (true) WITH CHECK (true);
+
+-- 7. ENABLE REALTIME BROADCASTS IN SUPABASE REPLICATION
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'stations'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.stations;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'sensor_readings'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.sensor_readings;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'alerts'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.alerts;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'device_health'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.device_health;
+    END IF;
+END $$;
