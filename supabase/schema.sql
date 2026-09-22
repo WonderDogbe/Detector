@@ -5,7 +5,7 @@
 -- https://supabase.com/dashboard/project/_/sql/new
 -- ==============================================================================
 
-J    pressure NUMERIC(6, 1) NOT NULL, -- In hPa (e.g. 1012.2)
+   pressure NUMERIC(6, 1) NOT NULL, -- In hPa (e.g. 1012.2)
     rain_detected BOOLEAN DEFAULT FALSE,
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
