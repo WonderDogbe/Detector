@@ -86,6 +86,11 @@ class DeviceHealthPayload(BaseModel):
     uptime_seconds: int = Field(0, description="Uptime in seconds")
 
 
+class UpdateAlertPayload(BaseModel):
+    status: str = Field(..., description="UNREVIEWED | ACKNOWLEDGED | UNDER REVIEW | RESOLVED | FALSE POSITIVE")
+    reviewer_notes: Optional[str] = Field(None, description="Operator review notes")
+
+
 # ==============================================================================
 # AUTHENTICATION DEPENDENCY
 # ==============================================================================
@@ -127,6 +132,41 @@ def compute_server_score(reading: SensorReadingPayload) -> tuple[int, str]:
     return score, level
 
 
+# Pre-registered stations fallback
+REGISTERED_STATIONS = [
+    {
+        "id": "GG-001",
+        "device_id": "RPI4-GG-PRABASIN",
+        "name": "Pra River Sector Alpha",
+        "location_name": "Pra River Basin — Lower Reach",
+        "latitude": 5.4120,
+        "longitude": -1.6210,
+        "status": "ONLINE",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    },
+    {
+        "id": "GG-002",
+        "device_id": "RPI4-GG-ATEWAFST",
+        "name": "Atewa Forest Fringe",
+        "location_name": "Atewa Range Forest Reserve",
+        "latitude": 6.2310,
+        "longitude": -0.5820,
+        "status": "ONLINE",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    },
+    {
+        "id": "GG-003",
+        "device_id": "RPI4-GG-TARKCOMM",
+        "name": "Tarkwa Community Perimeter",
+        "location_name": "Tarkwa North Buffer Zone",
+        "latitude": 5.3120,
+        "longitude": -1.9880,
+        "status": "ONLINE",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    },
+]
+
+
 # ==============================================================================
 # API ENDPOINTS
 # ==============================================================================
@@ -138,6 +178,119 @@ def health_check():
         "supabase_connected": supabase_client is not None,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.get("/api/v1/system/status")
+def system_status():
+    """Returns gateway status, active nodes, and connectivity telemetry."""
+    return {
+        "status": "ONLINE",
+        "version": "1.0.0",
+        "backend": "FastAPI (Python 3.11+)",
+        "database": "Supabase PostgreSQL (Realtime enabled)",
+        "supabase_connected": supabase_client is not None,
+        "registered_stations": len(REGISTERED_STATIONS),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/api/v1/stations")
+async def get_stations():
+    """Returns all registered monitoring stations."""
+    if supabase_client:
+        try:
+            res = supabase_client.table("stations").select("*").order("id").execute()
+            if res.data and len(res.data) > 0:
+                return res.data
+        except Exception as err:
+            print(f"[Supabase Stations Error] {err}")
+    return REGISTERED_STATIONS
+
+
+@app.get("/api/v1/readings")
+async def get_readings(station_id: Optional[str] = None, limit: int = 50):
+    """Returns historical sensor readings with optional station filter."""
+    if not supabase_client:
+        return []
+    try:
+        query = supabase_client.table("sensor_readings").select("*")
+        if station_id:
+            query = query.eq("station_id", station_id)
+        res = query.order("timestamp", desc=True).limit(limit).execute()
+        # Return sorted chronologically (ascending) for time-series charts
+        data = res.data or []
+        data.reverse()
+        return data
+    except Exception as err:
+        print(f"[Supabase Readings Error] {err}")
+        return []
+
+
+@app.get("/api/v1/alerts")
+async def get_alerts(status_filter: Optional[str] = None, limit: int = 50):
+    """Returns logged security and anomaly alerts."""
+    if not supabase_client:
+        return []
+    try:
+        query = supabase_client.table("alerts").select("*")
+        if status_filter and status_filter != "ALL":
+            query = query.eq("status", status_filter)
+        res = query.order("timestamp", desc=True).limit(limit).execute()
+        return res.data or []
+    except Exception as err:
+        print(f"[Supabase Alerts Error] {err}")
+        return []
+
+
+@app.patch("/api/v1/alerts/{alert_id}")
+async def update_alert_status(alert_id: str, payload: UpdateAlertPayload):
+    """Human verification status update for an alert."""
+    if not supabase_client:
+        raise HTTPException(status_code=503, detail="Database not configured")
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        update_data = {
+            "status": payload.status,
+            "updated_at": now_iso,
+        }
+        if payload.reviewer_notes:
+            update_data["reviewer_notes"] = payload.reviewer_notes
+            update_data["reviewed_at"] = now_iso
+
+        res = supabase_client.table("alerts").update(update_data).eq("id", alert_id).execute()
+        return {"success": True, "alert_id": alert_id, "updated": res.data}
+    except Exception as err:
+        print(f"[Supabase Alert Update Error] {err}")
+        raise HTTPException(status_code=500, detail=f"Failed to update alert: {err}")
+
+
+@app.get("/api/v1/health/{station_id}")
+async def get_station_health(station_id: str):
+    """Returns latest battery and network telemetry for a station."""
+    if not supabase_client:
+        return {
+            "station_id": station_id,
+            "battery_level": 98.0,
+            "solar_charging": True,
+            "device_status": "HEALTHY",
+            "network_status": "4G LTE",
+            "uptime_seconds": 3600,
+        }
+    try:
+        res = supabase_client.table("device_health").select("*").eq("station_id", station_id).order("timestamp", desc=True).limit(1).execute()
+        if res.data and len(res.data) > 0:
+            return res.data[0]
+        return {
+            "station_id": station_id,
+            "battery_level": 98.0,
+            "solar_charging": True,
+            "device_status": "HEALTHY",
+            "network_status": "4G LTE",
+            "uptime_seconds": 0,
+        }
+    except Exception as err:
+        print(f"[Supabase Health Error] {err}")
+        return {}
 
 
 @app.post("/api/v1/telemetry", status_code=status.HTTP_201_CREATED)
@@ -239,3 +392,4 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     print(f"Starting GalamseyGuard FastAPI Gateway on port {port}...")
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+

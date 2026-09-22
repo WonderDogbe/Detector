@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../config/supabase';
+import { apiService } from './apiService';
 import type {
   Station,
   SensorReading,
@@ -51,6 +52,7 @@ class RealSensorService {
   private listeners: Set<Listener> = new Set();
   private realtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
   private isConnected: boolean = false;
+  private isApiConnected: boolean = false;
   private lastPacketTimestamp: string | null = null;
 
   constructor() {
@@ -67,15 +69,8 @@ class RealSensorService {
       });
     });
 
-    // Initialize Supabase sync if credentials are available
-    if (isSupabaseConfigured && supabase) {
-      this.initSupabaseSync();
-    } else {
-      console.info(
-        '[GalamseyGuard] Running in Local Edge Ingestion mode. Ready to receive real sensor payloads.'
-      );
-      this.isConnected = true;
-    }
+    // Initialize FastAPI and Supabase synchronization
+    this.initDataSync();
   }
 
   public subscribe(listener: Listener): () => void {
@@ -94,19 +89,72 @@ class RealSensorService {
   }
 
   /**
-   * Initializes real-time subscriptions and fetches initial data from Supabase
+   * Initializes data synchronization from FastAPI Gateway and Supabase Realtime
    */
-  private async initSupabaseSync(): Promise<void> {
-    if (!supabase) return;
-
+  private async initDataSync(): Promise<void> {
+    // 1. First attempt to load initial data via FastAPI Gateway
     try {
-      // 1. Fetch live stations
-      const { data: stationsData, error: stationsError } = await supabase
-        .from('stations')
-        .select('*')
-        .order('id');
+      const statusRes = await apiService.getSystemStatus();
+      if (statusRes && statusRes.status === 'ONLINE') {
+        this.isApiConnected = true;
+        console.info('[GalamseyGuard] Connected to FastAPI Gateway:', statusRes.version);
+      }
 
-      if (!stationsError && stationsData && stationsData.length > 0) {
+      // Fetch live stations via FastAPI
+      const stationsData = await apiService.getStations();
+      if (stationsData && stationsData.length > 0) {
+        this.stations = stationsData;
+        this.stations.forEach((st) => {
+          if (!this.readingsByStation.has(st.id)) {
+            this.readingsByStation.set(st.id, []);
+          }
+        });
+      }
+
+      // Fetch historical readings for each station via FastAPI
+      for (const st of this.stations) {
+        const readingsData = await apiService.getReadings(st.id, 50);
+        if (readingsData && readingsData.length > 0) {
+          this.readingsByStation.set(st.id, readingsData);
+          this.lastPacketTimestamp = readingsData[readingsData.length - 1].timestamp;
+        }
+      }
+
+      // Fetch alerts via FastAPI
+      const alertsData = await apiService.getAlerts();
+      if (alertsData && alertsData.length > 0) {
+        this.alerts = alertsData;
+      }
+
+      // Fetch health via FastAPI
+      for (const st of this.stations) {
+        const healthData = await apiService.getStationHealth(st.id);
+        if (healthData && healthData.battery_level !== undefined) {
+          this.healthByStation.set(st.id, healthData);
+        }
+      }
+
+      this.isConnected = true;
+      this.notify();
+    } catch (apiErr) {
+      console.warn('[GalamseyGuard] FastAPI initial sync warning (falling back to direct Supabase):', apiErr);
+      await this.initDirectSupabaseSync();
+    }
+
+    // 2. Connect Supabase Realtime WebSocket for instant streaming updates
+    if (isSupabaseConfigured && supabase) {
+      this.initRealtimeWebSocket();
+    }
+  }
+
+  /**
+   * Fallback to direct Supabase REST client if FastAPI is unavailable
+   */
+  private async initDirectSupabaseSync(): Promise<void> {
+    if (!supabase) return;
+    try {
+      const { data: stationsData } = await supabase.from('stations').select('*').order('id');
+      if (stationsData && stationsData.length > 0) {
         this.stations = stationsData as Station[];
         this.stations.forEach((st) => {
           if (!this.readingsByStation.has(st.id)) {
@@ -115,31 +163,26 @@ class RealSensorService {
         });
       }
 
-      // 2. Fetch historical sensor readings for each station (past 50 items)
       for (const st of this.stations) {
-        const { data: readingsData, error: readingsError } = await supabase
+        const { data: readingsData } = await supabase
           .from('sensor_readings')
           .select('*')
           .eq('station_id', st.id)
           .order('timestamp', { ascending: true })
           .limit(50);
-
-        if (!readingsError && readingsData) {
+        if (readingsData && readingsData.length > 0) {
           this.readingsByStation.set(st.id, readingsData as SensorReading[]);
-          if (readingsData.length > 0) {
-            this.lastPacketTimestamp = readingsData[readingsData.length - 1].timestamp;
-          }
+          this.lastPacketTimestamp = readingsData[readingsData.length - 1].timestamp;
         }
       }
 
-      // 3. Fetch alerts
-      const { data: alertsData, error: alertsError } = await supabase
+      const { data: alertsData } = await supabase
         .from('alerts')
         .select('*')
         .order('timestamp', { ascending: false })
         .limit(100);
 
-      if (!alertsError && alertsData) {
+      if (alertsData) {
         this.alerts = alertsData.map((row: any) => ({
           ...row,
           snapshot_readings: {
@@ -152,67 +195,59 @@ class RealSensorService {
         }));
       }
 
-      // 4. Fetch device health
-      for (const st of this.stations) {
-        const { data: healthData, error: healthError } = await supabase
-          .from('device_health')
-          .select('*')
-          .eq('station_id', st.id)
-          .order('timestamp', { ascending: false })
-          .limit(1);
-
-        if (!healthError && healthData && healthData.length > 0) {
-          this.healthByStation.set(st.id, healthData[0] as DeviceHealth);
-        }
-      }
-
       this.isConnected = true;
       this.notify();
-
-      // 5. Connect Realtime WebSocket channel for incoming sensor telemetry
-      this.realtimeChannel = supabase
-        .channel('realtime:galamsey-guard')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'sensor_readings' },
-          (payload) => {
-            this.handleIncomingReading(payload.new as SensorReading);
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'alerts' },
-          (payload) => {
-            this.handleIncomingAlert(payload.new as any);
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'alerts' },
-          (payload) => {
-            this.handleUpdatedAlert(payload.new as any);
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'device_health' },
-          (payload) => {
-            const h = payload.new as DeviceHealth;
-            this.healthByStation.set(h.station_id, h);
-            this.notify();
-          }
-        )
-        .subscribe((status) => {
-          this.isConnected = status === 'SUBSCRIBED';
-          this.notify();
-        });
     } catch (err) {
-      console.error('[GalamseyGuard] Supabase initial sync error:', err);
+      console.error('[GalamseyGuard] Direct Supabase sync error:', err);
     }
   }
 
   /**
-   * Directly ingest a real sensor packet (from Python edge agent, ESP32, or local API)
+   * Subscribes to Supabase Realtime WebSocket changes
+   */
+  private initRealtimeWebSocket(): void {
+    if (!supabase) return;
+
+    this.realtimeChannel = supabase
+      .channel('realtime:galamsey-guard')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'sensor_readings' },
+        (payload) => {
+          this.handleIncomingReading(payload.new as SensorReading);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'alerts' },
+        (payload) => {
+          this.handleIncomingAlert(payload.new as any);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'alerts' },
+        (payload) => {
+          this.handleUpdatedAlert(payload.new as any);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'device_health' },
+        (payload) => {
+          const h = payload.new as DeviceHealth;
+          this.healthByStation.set(h.station_id, h);
+          this.notify();
+        }
+      )
+      .subscribe((status) => {
+        this.isConnected = status === 'SUBSCRIBED' || this.isApiConnected;
+        this.notify();
+      });
+  }
+
+  /**
+   * Directly ingest a real sensor packet
    */
   public ingestRealReading(reading: SensorReading): void {
     this.handleIncomingReading(reading);
@@ -220,7 +255,6 @@ class RealSensorService {
 
   private handleIncomingReading(reading: SensorReading): void {
     const list = this.readingsByStation.get(reading.station_id) || [];
-    // Keep past 100 readings in circular memory buffer
     const updated = [...list, reading].slice(-100);
     this.readingsByStation.set(reading.station_id, updated);
     this.lastPacketTimestamp = reading.timestamp;
@@ -251,7 +285,6 @@ class RealSensorService {
       },
     };
 
-    // Prepend new alert
     this.alerts = [alert, ...this.alerts.filter((a) => a.id !== alert.id)];
     this.notify();
   }
@@ -299,6 +332,9 @@ class RealSensorService {
     return this.healthByStation.get(stationId);
   }
 
+  /**
+   * Update alert status via FastAPI backend (with fallback to Supabase)
+   */
   public async updateAlertStatus(
     alertId: string,
     status: AlertStatus,
@@ -306,7 +342,7 @@ class RealSensorService {
   ): Promise<boolean> {
     const now = new Date().toISOString();
 
-    // Update local state immediately
+    // Optimistic local update
     this.alerts = this.alerts.map((a) => {
       if (a.id === alertId) {
         return {
@@ -321,34 +357,38 @@ class RealSensorService {
     });
     this.notify();
 
-    // Persist to Supabase if configured
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const { error } = await supabase
-          .from('alerts')
-          .update({
-            status,
-            reviewer_notes: reviewerNotes,
-            reviewed_at: now,
-            updated_at: now,
-          })
-          .eq('id', alertId);
-
-        if (error) {
-          console.error('[GalamseyGuard] Failed to persist alert status:', error);
+    // Send through FastAPI backend
+    try {
+      await apiService.updateAlertStatus(alertId, status, reviewerNotes);
+      return true;
+    } catch (apiErr) {
+      console.warn('[GalamseyGuard] FastAPI update alert warning, attempting Supabase direct:', apiErr);
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { error } = await supabase
+            .from('alerts')
+            .update({
+              status,
+              reviewer_notes: reviewerNotes,
+              reviewed_at: now,
+              updated_at: now,
+            })
+            .eq('id', alertId);
+          return !error;
+        } catch {
           return false;
         }
-      } catch (err) {
-        console.error('[GalamseyGuard] Error updating alert:', err);
-        return false;
       }
+      return false;
     }
-
-    return true;
   }
 
   public isConnectedToStream(): boolean {
-    return this.isConnected;
+    return this.isConnected || this.isApiConnected;
+  }
+
+  public isFastApiConnected(): boolean {
+    return this.isApiConnected;
   }
 
   public getLastPacketTimestamp(): string | null {

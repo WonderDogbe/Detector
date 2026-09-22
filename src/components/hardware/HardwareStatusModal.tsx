@@ -17,6 +17,7 @@ import {
   Server,
   Zap,
 } from 'lucide-react';
+import { apiService } from '../../services/apiService';
 import { getSupabaseStatus } from '../../config/supabase';
 import type { Station } from '../../types';
 
@@ -40,7 +41,9 @@ export const HardwareStatusModal: FC<HardwareStatusModalProps> = ({
   isConnected,
 }) => {
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'status' | 'pinouts' | 'firmware'>('status');
+  const [activeTab, setActiveTab] = useState<'status' | 'api' | 'pinouts' | 'firmware'>('status');
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -94,6 +97,16 @@ export const HardwareStatusModal: FC<HardwareStatusModalProps> = ({
             }`}
           >
             Live Ingestion Status
+          </button>
+          <button
+            onClick={() => setActiveTab('api')}
+            className={`pb-2 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+              activeTab === 'api'
+                ? 'border-white text-white'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            API Gateway & Ingestion
           </button>
           <button
             onClick={() => setActiveTab('pinouts')}
@@ -209,6 +222,137 @@ export const HardwareStatusModal: FC<HardwareStatusModalProps> = ({
                 <p className="text-xs text-zinc-400 leading-relaxed">
                   All synthetic sine-wave loops and fake alert generators have been removed from the application. The system is strictly waiting for real telemetry transmissions from the physical sensor suite.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'api' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Server className="w-4 h-4 text-emerald-400" />
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      FastAPI Gateway Integration
+                    </h4>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                    PORT 8000
+                  </span>
+                </div>
+                <div className="text-xs space-y-1.5 text-zinc-400">
+                  <p><span className="text-zinc-200 font-semibold">Endpoint:</span> <code className="text-emerald-400 font-mono">POST /api/v1/telemetry</code></p>
+                  <p><span className="text-zinc-200 font-semibold">CORS:</span> Enabled for React Dashboard</p>
+                  <p><span className="text-zinc-200 font-semibold">Proxy Route:</span> <code className="text-zinc-300 font-mono">/api/v1/*</code> routes to <code className="text-zinc-300 font-mono">http://localhost:8000/api/v1/*</code></p>
+                  <p><span className="text-zinc-200 font-semibold">Database:</span> Supabase PostgreSQL (Automatic Alert Generation & Realtime Streaming)</p>
+                </div>
+              </div>
+
+              {/* Interactive Test Triggers */}
+              <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-3">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-amber-400" />
+                  <span>Send Test Telemetry Packet via API</span>
+                </h4>
+                <p className="text-xs text-zinc-400">
+                  Dispatch a real HTTP POST request to the FastAPI server. The backend will validate the schema, evaluate the risk score, write to Supabase, and stream back into this dashboard.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* High Risk Machinery Packet */}
+                  <button
+                    disabled={isSendingTest}
+                    onClick={async () => {
+                      setIsSendingTest(true);
+                      setTestResult(null);
+                      try {
+                        const res = await apiService.sendTelemetryPacket({
+                          station_id: selectedStationId,
+                          sound_rms: 0.86,
+                          dominant_frequency: 114.5,
+                          vibration_rms: 0.78,
+                          temperature: 29.5,
+                          humidity: 65.0,
+                          pressure: 1011.0,
+                          rain_detected: false,
+                          latitude: 5.4120,
+                          longitude: -1.6210,
+                        });
+                        setTestResult(JSON.stringify(res, null, 2));
+                      } catch (err: any) {
+                        setTestResult(`Error: ${err.message}`);
+                      } finally {
+                        setIsSendingTest(false);
+                      }
+                    }}
+                    className="p-3 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 border border-rose-800 text-left transition-all cursor-pointer disabled:opacity-50 group"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-rose-300">
+                        Machinery Detection Packet
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-900 text-rose-200">
+                        Score ~85
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400">
+                      Sound: 86% RMS (114Hz) • Vibration: 78% RMS • Rain: None
+                    </p>
+                  </button>
+
+                  {/* Calm Normal Baseline Packet */}
+                  <button
+                    disabled={isSendingTest}
+                    onClick={async () => {
+                      setIsSendingTest(true);
+                      setTestResult(null);
+                      try {
+                        const res = await apiService.sendTelemetryPacket({
+                          station_id: selectedStationId,
+                          sound_rms: 0.18,
+                          dominant_frequency: 240.0,
+                          vibration_rms: 0.05,
+                          temperature: 27.2,
+                          humidity: 79.0,
+                          pressure: 1012.8,
+                          rain_detected: false,
+                          latitude: 5.4120,
+                          longitude: -1.6210,
+                        });
+                        setTestResult(JSON.stringify(res, null, 2));
+                      } catch (err: any) {
+                        setTestResult(`Error: ${err.message}`);
+                      } finally {
+                        setIsSendingTest(false);
+                      }
+                    }}
+                    className="p-3 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-800 text-left transition-all cursor-pointer disabled:opacity-50 group"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-emerald-300">
+                        Calm Baseline Packet
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-900 text-emerald-200">
+                        Score ~18
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400">
+                      Sound: 18% RMS • Vibration: 5% RMS • Rain: None
+                    </p>
+                  </button>
+                </div>
+
+                {/* Response Viewer */}
+                {testResult && (
+                  <div className="mt-3 p-3 rounded-xl bg-zinc-900 border border-zinc-800 font-mono text-[11px] space-y-1">
+                    <span className="text-zinc-400 block font-sans text-[10px] font-semibold uppercase tracking-wider">
+                      FastAPI Server Response:
+                    </span>
+                    <pre className="text-emerald-400 whitespace-pre-wrap overflow-x-auto">
+                      {testResult}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           )}
