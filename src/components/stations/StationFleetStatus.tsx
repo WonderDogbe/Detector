@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { Plus } from 'lucide-react';
 import type { Station, SensorReading } from '../../types';
 
 interface StationFleetStatusProps {
@@ -6,6 +7,7 @@ interface StationFleetStatusProps {
   selectedStationId: string;
   onSelectStation: (stationId: string) => void;
   allLatestReadings: Record<string, SensorReading | undefined>;
+  onOpenAddStation?: () => void;
 }
 
 export const StationFleetStatus: FC<StationFleetStatusProps> = ({
@@ -13,6 +15,7 @@ export const StationFleetStatus: FC<StationFleetStatusProps> = ({
   selectedStationId,
   onSelectStation,
   allLatestReadings,
+  onOpenAddStation,
 }) => {
   const onlineCount = stations.filter((s) => s.status === 'ONLINE').length;
 
@@ -110,6 +113,18 @@ export const StationFleetStatus: FC<StationFleetStatusProps> = ({
           );
         })}
       </div>
+
+      {onOpenAddStation && (
+        <div className="pt-2 border-t border-slate-100">
+          <button
+            onClick={onOpenAddStation}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-dashed border-slate-300 hover:border-[#123c28] hover:bg-emerald-50/50 text-[#123c28] text-xs font-semibold transition-all cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Deploy New Station</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

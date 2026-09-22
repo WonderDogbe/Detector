@@ -399,18 +399,21 @@ class RealSensorService {
         solar_charging: true,
         uptime_seconds: 0,
       });
+      this.saveToCache();
       this.notify();
     }
 
     try {
       const created = await apiService.createStation(newStation);
       await this.syncFast();
+      this.saveToCache();
       return created;
     } catch (err) {
       console.warn('[GalamseyGuard] FastAPI station creation warning:', err);
       if (isSupabaseConfigured && supabase) {
         const { data } = await supabase.from('stations').insert(newStation).select();
         if (data && data.length > 0) {
+          this.saveToCache();
           return data[0] as Station;
         }
       }

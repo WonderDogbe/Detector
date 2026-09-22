@@ -117,6 +117,7 @@ export function App() {
                     selectedStationId={selectedStationId}
                     onSelectStation={setSelectedStationId}
                     allLatestReadings={allLatestReadings}
+                    onOpenAddStation={() => setIsAddStationOpen(true)}
                   />
                 </div>
               </div>

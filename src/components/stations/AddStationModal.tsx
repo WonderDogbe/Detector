@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import { Radio, X, Plus, AlertCircle } from 'lucide-react';
 import type { Station } from '../../types';
@@ -25,18 +25,37 @@ export const AddStationModal: FC<AddStationModalProps> = ({
   onCreateStation,
   onSelectStation,
 }) => {
-  // Suggest next available station ID
-  const nextNumber = stations.length + 1;
-  const suggestedId = `GG-${String(nextNumber).padStart(3, '0')}`;
-
-  const [id, setId] = useState(suggestedId);
-  const [deviceId, setDeviceId] = useState(`RPI4-GG-NODE${nextNumber}`);
+  const [id, setId] = useState('GG-004');
+  const [deviceId, setDeviceId] = useState('RPI4-GG-NODE4');
   const [name, setName] = useState('');
   const [locationName, setLocationName] = useState('');
   const [latitude, setLatitude] = useState('5.2140');
   const [longitude, setLongitude] = useState('-2.1520');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Dynamically calculate the next available station number when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      let maxNum = 0;
+      stations.forEach((st) => {
+        const match = st.id.match(/^GG-(\d+)$/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      });
+      const nextNumber = Math.max(stations.length + 1, maxNum + 1);
+      const suggestedId = `GG-${String(nextNumber).padStart(3, '0')}`;
+      setId(suggestedId);
+      setDeviceId(`RPI4-GG-NODE${nextNumber}`);
+      setName('');
+      setLocationName('');
+      setLatitude('5.2140');
+      setLongitude('-2.1520');
+      setError(null);
+    }
+  }, [isOpen, stations]);
 
   if (!isOpen) return null;
 
