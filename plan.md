@@ -1,17 +1,19 @@
-# GalamseyGuard — Implementation Master Plan
+# GalamseyGuard — Physical Sensor Implementation Master Plan
 
-> **Systematic, Phase-by-Phase Roadmap for the GalamseyGuard IoT Environmental Activity Monitoring Prototype**
+> **Systematic, Hardware-First Deployment Roadmap for the GalamseyGuard IoT Environmental Activity & Machinery Pattern Detection System**
 
 ---
 
 ## Executive Summary
 
-**GalamseyGuard** is an IoT-based environmental monitoring platform designed to demonstrate how multi-sensor environmental telemetry (acoustic, vibration, meteorological, and geospatial data) can be aggregated, analyzed, and visualized to identify activity patterns associated with heavy machinery.
+**GalamseyGuard** is an IoT-based environmental monitoring and activity detection platform designed to capture, aggregate, analyze, and visualize physical multi-sensor environmental telemetry (acoustic, dynamic vibration, meteorological, and geospatial coordinates) to identify activity patterns associated with heavy machinery.
 
-In strict adherence to the [project_vision.md](file:///c:/Users/VhimBoss/Desktop/Galamsey%20Activity%20Detector/project_vision.md), the system:
-1. **Prioritizes Software & Simulation First**: We prove the complete pipeline—from data ingestion and multi-signal scoring to real-time maps, trend charts, and alert escalation—using realistic simulated telemetry before integrating physical Raspberry Pi hardware.
-2. **Maintains Responsible Language**: The system flags *"Possible machinery-related activity detected. Human verification required."* rather than making definitive or legal claims of illegal mining.
-3. **Ensures Human-in-the-Loop Governance**: Automated risk scores trigger an operational alert workflow (`UNREVIEWED` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `UNDER REVIEW` $\rightarrow$ `RESOLVED` / `FALSE POSITIVE`).
+Now that the **physical hardware sensors are available** (INMP441 digital microphone, MPU-6050 3-axis accelerometer, BME280 environmental sensor, rain detection module, and GPS), this plan transitions the project from a simulated prototype to a **complete physical implementation**:
+
+1. **Hardware-Grounded Edge Telemetry**: Edge compute units (Raspberry Pi 4/3B+ or ESP32 microcontrollers) interface directly with physical sensors, calculate real acoustic RMS and FFT frequency spectra, compute dynamic 3-axis vibration magnitude, sample ambient barometric/weather data, and transmit JSON packets conforming to the Section 8 schema.
+2. **Zero-Mock Production Pipeline**: All synthetic sine-wave loops, random bumps, and fake alerts have been purged from the project. The dashboard operates exclusively on real telemetry streamed via Supabase Realtime or local edge gateways.
+3. **Responsible Automated Detection & Human-in-the-Loop Governance**: Automated risk scores trigger an operational alert workflow (`UNREVIEWED` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `UNDER REVIEW` $\rightarrow$ `RESOLVED` / `FALSE POSITIVE`) with standardized non-accusatory language:
+   > *"Possible machinery-related activity detected. Human verification required."*
 
 ---
 
@@ -19,39 +21,162 @@ In strict adherence to the [project_vision.md](file:///c:/Users/VhimBoss/Desktop
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        DATA PRODUCER LAYER                             │
+│                   PHYSICAL EDGE SENSOR LAYER                           │
 │                                                                        │
-│   [Phase 1-3: Telemetry Simulator]      [Phase 5: Physical Hardware]   │
-│   - Realistic Noise & Baseline Drift    - Raspberry Pi Model 4 / 3B+   │
-│   - Multi-Station (GG-001, GG-002, ...) - INMP441 (I2S Microphone)     │
-│   - Scenario Injector (Rain, Machine)   - MPU6050 (I2C Accelerometer)  │
-│                                         - BME280 (I2C Weather)         │
-│                                         - Rain Sensor & NEO-6M GPS     │
+│   Raspberry Pi 4 / 3B+ / ESP32 Wireless Sensor Nodes                   │
+│   ├── INMP441 (I2S Digital Microphone) ──> Sound RMS & FFT Freq Peak   │
+│   ├── MPU-6050 (I2C Accelerometer)    ──> Dynamic 3-Axis Vibration RMS │
+│   ├── BME280 (I2C Weather)            ──> Temp, Humidity, Pressure     │
+│   ├── Rain Module (Digital GPIO 17)   ──> Rain Dampening Flag (x0.75)  │
+│   └── NEO-6M GPS (UART Serial)        ──> Geospatial Coordinates & UTC │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │ HTTP / REST / Realtime WebSockets
+                                    │ HTTPS REST / WebSocket / Local LAN
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        BACKEND & STORAGE LAYER                         │
+│                   INGESTION & BACKEND CLOUD LAYER                      │
 │                                                                        │
-│   Supabase (PostgreSQL 15+)                                            │
-│   ├── Tables: stations, sensor_readings, alerts, device_health         │
-│   ├── Realtime Replication (Change Data Capture over WebSockets)       │
-│   ├── Row-Level Security (RLS) & Supabase Authentication               │
-│   └── Edge Functions / Python Scoring Worker (Threshold & Fusion Logic)│
+│   Supabase (PostgreSQL 15+) & Local Edge Gateway                       │
+│   ├── Public Tables: stations, sensor_readings, alerts, device_health  │
+│   ├── Realtime Replication: postgres_changes CDC over WebSockets       │
+│   ├── Row-Level Security (RLS) & Indexed Timescale Telemetry           │
+│   ├── Local Edge Gateway (`edge/local_ingestion_server.py`)            │
+│   └── Offline SQLite Resiliency Queue (`edge_buffer.sqlite`)           │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │ Realtime State Sync & REST API
+                                    │ Realtime State Sync (WebSocket)
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                   FRONTEND DEMONSTRATION DASHBOARD                     │
+│                   OPERATOR MONITORING CONSOLE                          │
 │                                                                        │
 │   React 19 + TypeScript + Vite + Tailwind CSS                          │
-│   ├── Executive Overview KPI Cards (Active Stations, Alerts, Health)   │
-│   ├── Geospatial Map (Leaflet / React Leaflet with Status Badges)     │
-│   ├── Real-Time Telemetry Panels (Gauges, Cards, Waveform/Level meters)│
-│   ├── Historical Trends (Recharts: Sound RMS, Vibration, Temperature) │
-│   ├── Alert Management & Verification Console (Audit Log & Notes)     │
-│   └── Interactive Scenario Simulator Bar (Live Event Demo Trigger)    │
+│   ├── Operational Fleet Hub (Live Online Stations & Network Status)    │
+│   ├── Geospatial Map (Leaflet / Esri Canvas with Live Status Badges)  │
+│   ├── Real-Time Telemetry Gauges (6 Core Environmental Instruments)    │
+│   ├── Historical Progression Charts (Recharts Multi-Metric Trends)     │
+│   ├── Alert Management Console (Section 10 Human Verification Flow)   │
+│   └── Hardware Diagnostics Modal (Pinouts, Commands & Ingestion Feed)  │
 └────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Supabase as the Bridge Between Raspberry Pi and React Dashboard
+
+### 1. Objective
+
+The GalamseyGuard prototype will use **Supabase as the central data bridge** between the Raspberry Pi monitoring station and the React web dashboard.
+
+The Raspberry Pi and React dashboard will not need to run on the same computer or local network.
+
+The communication architecture will be:
+
+```text
+┌──────────────────────┐
+│    RASPBERRY PI      │
+│                      │
+│  Sensors             │
+│  Python              │
+│  Data Processing     │
+│  Device Health       │
+└──────────┬───────────┘
+           │
+           │ HTTPS
+           ▼
+┌──────────────────────┐
+│       FASTAPI        │
+│                      │
+│  Device API          │
+│  Validation          │
+│  Processing          │
+│  Authentication      │
+└──────────┬───────────┘
+           │
+           │
+           ▼
+┌─────────────────────────────────┐
+│            SUPABASE              │
+│                                 │
+│  PostgreSQL Database             │
+│  Authentication                  │
+│  Realtime                        │
+│  Row Level Security              │
+└───────────────┬─────────────────┘
+                │
+                │ HTTPS / Realtime
+                ▼
+┌─────────────────────────────────┐
+│       REACT DASHBOARD            │
+│                                 │
+│  Map                            │
+│  Sensor Readings                │
+│  Historical Charts              │
+│  Activity Indicators            │
+│  Alerts                         │
+└─────────────────────────────────┘
+```
+
+---
+
+### 2. Why Supabase Acts as the Bridge
+
+The Raspberry Pi and the React dashboard have different responsibilities.
+
+#### Raspberry Pi
+
+The Raspberry Pi is responsible for:
+
+- Reading physical sensors
+- Processing sensor signals
+- Extracting useful features
+- Reading GPS
+- Monitoring device health
+- Sending data to the backend
+
+#### React Dashboard
+
+The React application is responsible for:
+
+- Displaying sensor information
+- Displaying station locations
+- Displaying historical charts
+- Displaying activity indicators
+- Displaying alerts
+- Allowing authorized users to review alerts
+
+#### Supabase
+
+Supabase acts as the shared cloud data layer.
+
+It provides:
+
+- Persistent storage
+- PostgreSQL database
+- Authentication
+- Realtime updates
+- Access control
+- API access
+
+Therefore:
+
+> **The Raspberry Pi writes monitoring information into the system, while the React dashboard reads and visualizes that information through Supabase.**
+
+---
+
+### 3. Data Flow
+
+The primary data flow will be:
+
+```text
+Physical Sensors (INMP441, MPU-6050, BME280, Rain, GPS)
+      ↓
+Raspberry Pi (Hardware Sampling & Feature Extraction)
+      ↓
+Python Sensor Application (RMS, FFT, Vibration & Health Telemetry)
+      ↓
+FastAPI Device Ingestion Gateway (Validation, Ingestion & Device Auth)
+      ↓
+Supabase Database (PostgreSQL Storage & Realtime CDC Engine)
+      ↓
+React Dashboard (Live Telemetry, Geospatial Mapping & Incident Verification)
 ```
 
 ---
@@ -60,301 +185,230 @@ In strict adherence to the [project_vision.md](file:///c:/Users/VhimBoss/Desktop
 
 ```mermaid
 flowchart TD
-    P1[Phase 1: Project Scaffolding & Design Foundation] --> P2[Phase 2: Database Schema & Supabase Services]
-    P2 --> P3[Phase 3: Telemetry Simulation & Multi-Sensor Fusion Engine]
-    P3 --> P4[Phase 4: Interactive Web Dashboard & Realtime UI]
-    P4 --> P5[Phase 5: Alert Lifecycle & Verification Workflow]
-    P5 --> P6[Phase 6: Live Scenario Injection & Presentation Mode]
-    P6 --> P7[Phase 7: Hardware & Edge Gateway Integration (Raspberry Pi)]
-    P7 --> P8[Phase 8: Polish, Production Hardening & Future Scaling]
+    P1[Phase 1: Real Telemetry Pipeline & Database Schema] --> P2[Phase 2: Physical Sensor Edge Ingestion & Driver Suite]
+    P2 --> P3[Phase 3: Hardware Ingestion API & Edge-to-Cloud Bridge]
+    P3 --> P4[Phase 4: Production Dashboard UI & Zero-Mock Refactor]
+    P4 --> P5[Phase 5: Multi-Signal Scoring Engine & On-Cloud / Edge Detection]
+    P5 --> P6[Phase 6: Human-in-the-Loop Verification & Audit Logging]
+    P6 --> P7[Phase 7: Sensor Calibration & Bench Testing]
+    P7 --> P8[Phase 8: Field Enclosure, Solar Power & GSM/LoRa Deployment]
 ```
 
 ---
 
-### Phase 1: Project Scaffolding & Design Foundation
+### Phase 1: Real Telemetry Pipeline & Database Schema
 
-**Goal:** Establish a modern, high-performance web application foundation with rich dark-mode aesthetics, TypeScript safety, and responsive design systems.
+**Goal:** Establish cloud and edge data persistence conforming to Section 8 of the project vision.
 
-#### 1.1 Technical Stack Setup
-- **Framework:** React 19 + Vite (TypeScript template).
-- **Styling:** Tailwind CSS + PostCSS + Autoprefixer.
-- **Iconography & UI Tokens:** Lucide React icons, Tailwind custom theme (dark slate `#0B0F19`, high-contrast emerald `#10B981`, alert amber `#F59E0B`, critical crimson `#EF4444`).
-- **State Management & Data Fetching:** Zustand or lightweight React Context for real-time station state; TanStack Query or native Supabase SDK hooks.
-
-#### 1.2 Directory Structure
-```text
-galamsey-guard/
-├── public/
-│   └── favicon.ico
-├── src/
-│   ├── assets/
-│   ├── components/
-│   │   ├── common/         # Buttons, Modals, Badges, Tabs, StatCards
-│   │   ├── dashboard/      # Overview metrics, quick filters, health summary
-│   │   ├── map/            # Leaflet map, custom station markers, popup modals
-│   │   ├── stations/       # Station list, detail view, real-time gauges
-│   │   ├── charts/         # Recharts historical trends & comparison
-│   │   ├── alerts/         # Alert table, review drawer, status updater
-│   │   └── simulator/      # Scenario injection control drawer
-│   ├── config/             # Supabase client, environment configuration
-│   ├── hooks/              # useStations, useRealtimeReadings, useAlerts
-│   ├── services/           # Supabase queries, mock fallback service
-│   ├── types/              # Database models, telemetry schemas, alert enums
-│   ├── utils/              # Scoring formula, formatters, coordinate helpers
-│   ├── App.tsx             # Root layout with sidebar navigation & header
-│   ├── main.tsx
-│   └── index.css           # Custom scrollbars, glassmorphism, radar animations
-├── package.json
-├── tsconfig.json
-├── tailwind.config.js
-└── vite.config.ts
-```
+#### 1.1 Schema Implementation (`supabase/schema.sql`)
+- `stations`: Physical station ID (`GG-001`), hardware device identifier, human-readable name, GPS coordinates, operational status (`ONLINE`, `OFFLINE`, `MAINTENANCE`).
+- `sensor_readings`: High-throughput time-series telemetry table with B-tree index on `(station_id, timestamp DESC)`. Captures:
+  - `sound_rms` (0.000 to 1.000) & `dominant_frequency` (Hz).
+  - `vibration_rms` (0.000 to 1.000).
+  - `temperature` (°C), `humidity` (%), `pressure` (hPa).
+  - `rain_detected` (boolean).
+  - `activity_score` (0 to 100) & `risk_level` (`NORMAL`, `ELEVATED`, `HIGH`, `CRITICAL`).
+- `alerts`: Human verification incident table with reviewer notes, review timestamps, and snapshot readings.
+- `device_health`: Hardware battery percentage, solar charging state, network interface, and uptime.
+- Enable `supabase_realtime` publication for all tables.
 
 #### Deliverables & Acceptance Criteria
-- [ ] Vite + React + TypeScript project compiles cleanly with zero lint errors.
-- [ ] Custom dark glassmorphism theme and typography loaded.
-- [ ] Core layout with responsive navigation sidebar, header status indicators, and view switcher.
+- [x] Clean PostgreSQL schema in `supabase/schema.sql`.
+- [x] Initial station records registered for Southern Ghana basins (Pra River, Atewa, Tarkwa).
+- [x] Realtime replication enabled on telemetry tables.
 
 ---
 
-### Phase 2: Database Schema & Supabase Services
+### Phase 2: Physical Sensor Edge Ingestion & Driver Suite
 
-**Goal:** Define the relational PostgreSQL schema in Supabase with indexes, constraints, and real-time subscription support, alongside a robust local offline fallback.
+**Goal:** Interface physical sensors with edge hardware and perform on-device signal processing.
 
-#### 2.1 Database Models (`schema.sql`)
-1. **`stations`**:
-   - `id` (UUID / text, Primary Key, e.g. `GG-001`)
-   - `name` (`VARCHAR(100)`)
-   - `location_name` (`VARCHAR(255)`, e.g. *"Pra River Basin — Sector Alpha"*)
-   - `latitude` (`DOUBLE PRECISION`), `longitude` (`DOUBLE PRECISION`)
-   - `status` (`'ONLINE' | 'OFFLINE' | 'MAINTENANCE'`)
-   - `created_at` (`TIMESTAMPTZ`)
-2. **`sensor_readings`**:
-   - `id` (`BIGSERIAL` / UUID)
-   - `station_id` (`REFERENCES stations(id) ON DELETE CASCADE`)
-   - `timestamp` (`TIMESTAMPTZ`, indexed)
-   - `sound_rms` (`NUMERIC(6,3)`), `dominant_frequency` (`NUMERIC(6,1)`)
-   - `vibration_rms` (`NUMERIC(6,3)`)
-   - `temperature` (`NUMERIC(4,1)`), `humidity` (`NUMERIC(4,1)`), `pressure` (`NUMERIC(6,1)`)
-   - `rain_detected` (`BOOLEAN`)
-   - `latitude` (`DOUBLE PRECISION`), `longitude` (`DOUBLE PRECISION`)
-   - `created_at` (`TIMESTAMPTZ DEFAULT NOW()`)
-3. **`alerts`**:
-   - `id` (UUID Primary Key)
-   - `station_id` (`REFERENCES stations(id)`)
-   - `timestamp` (`TIMESTAMPTZ`)
-   - `risk_score` (`INTEGER` from 0 to 100)
-   - `risk_level` (`'NORMAL' | 'ELEVATED' | 'HIGH' | 'CRITICAL'`)
-   - `alert_type` (`'MACHINERY_SUSPECTED' | 'ELEVATED_VIBRATION' | 'ACOUSTIC_ANOMALY'`)
-   - `description` (`TEXT`)
-   - `status` (`'UNREVIEWED' | 'ACKNOWLEDGED' | 'UNDER REVIEW' | 'RESOLVED' | 'FALSE POSITIVE'`)
-   - `reviewer_notes` (`TEXT`)
-   - `updated_at` (`TIMESTAMPTZ`)
-4. **`device_health`**:
-   - `id` (UUID)
-   - `station_id` (`REFERENCES stations(id)`)
-   - `timestamp` (`TIMESTAMPTZ`)
-   - `battery_level` (`NUMERIC(4,1)` %), `solar_charging` (`BOOLEAN`)
-   - `network_status` (`'4G' | 'WIFI' | 'LORA' | 'DEGRADED'`)
-   - `uptime_seconds` (`BIGINT`)
+#### 2.1 Hardware Connections & Pinouts (`docs/hardware_setup.md`)
+| Sensor | Interface | Measurement | Raspberry Pi GPIO | ESP32 Pin |
+|---|---|---|---|---|
+| **INMP441** | I2S Digital | Acoustic RMS & FFT Spectrum Peak | GPIO 18 (CLK), 19 (WS), 20 (DIN) | GPIO 26 (SCK), 25 (WS), 22 (SD) |
+| **MPU-6050** | I2C (`0x68`) | 3-Axis Dynamic Vibration RMS | GPIO 2 (SDA), GPIO 3 (SCL) | GPIO 21 (SDA), GPIO 22 (SCL) |
+| **BME280** | I2C (`0x76`) | Temperature, Humidity, Barometer | GPIO 2 (SDA), GPIO 3 (SCL) | GPIO 21 (SDA), GPIO 22 (SCL) |
+| **Rain Sensor** | Digital / GPIO | Rain Presence (Dampening) | GPIO 17 | GPIO 34 |
+| **NEO-6M GPS** | UART Serial | GPS Coordinates & UTC Time | GPIO 14 (TX), GPIO 15 (RX) | GPIO 16 (RX2), GPIO 17 (TX2) |
 
-#### 2.2 Dual-Mode Architecture (Supabase + Offline Memory Mode)
-- Provide a `SupabaseService` that talks to live Supabase when `.env` keys (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) are present.
-- Provide a seamless `MockDataService` with identical interfaces that runs client-side in the browser or via memory storage when Supabase keys are not configured yet, ensuring the app is 100% interactive out-of-the-box.
+#### 2.2 Edge Software Implementation
+- **Python Edge Daemon (`edge/sensor_agent.py`)**:
+  - Samples audio at $16\text{ kHz}$ over I2S/USB, computes true RMS amplitude and FFT spectral peak (targeting the $50\text{–}200\text{ Hz}$ heavy diesel band).
+  - Reads MPU-6050 at $50\text{ Hz}$, subtracts stationary gravity ($9.81\text{ m/s}^2$), and calculates dynamic root-mean-square vibration magnitude.
+  - Reads BME280 weather metrics and rain digital state.
+  - Computes multi-sensor activity score locally.
+  - Posts JSON to Supabase REST API (`/rest/v1/sensor_readings`) or local gateway.
+  - Implements offline SQLite queueing (`edge_buffer.sqlite`) to buffer packets during cellular drops.
+- **ESP32 Firmware (`edge/esp32_firmware/galamsey_sensor_node.ino`)**:
+  - Self-contained C++ Arduino sketch for wireless sensor nodes streaming JSON over Wi-Fi.
 
 #### Deliverables & Acceptance Criteria
-- [ ] SQL schema script created with appropriate indexing on `station_id` and `timestamp`.
-- [ ] TypeScript interfaces generated and aligned with the DB schema.
-- [ ] Service abstraction layer operating seamlessly in both live Supabase and offline mock mode.
+- [x] Complete Python edge agent (`edge/sensor_agent.py`).
+- [x] ESP32 wireless firmware (`edge/esp32_firmware/galamsey_sensor_node.ino`).
+- [x] Hardware wiring guide and pinout documentation (`docs/hardware_setup.md`).
 
 ---
 
-### Phase 3: Telemetry Simulation & Multi-Sensor Fusion Engine
+### Phase 3: Hardware Ingestion API & Edge-to-Cloud Bridge
 
-**Goal:** Implement the rule-based activity scoring algorithm and a realistic multi-station telemetry generator supporting key operational scenarios.
+**Goal:** Provide flexible, reliable connectivity for edge devices whether connected to cloud or local networks.
 
-#### 3.1 Multi-Sensor Scoring Algorithm (`scoringEngine.ts`)
-The activity indicator uses multi-sensor feature fusion:
-1. **Acoustic Index ($S_a \in [0, 100]$)**:
-   - Evaluates `sound_rms` normalized against ambient background baseline.
-   - Low-frequency penalty: Heavy diesel engines, excavators, and wash plants generate prominent low-frequency signatures ($50 \text{ Hz} - 250 \text{ Hz}$). If `dominant_frequency` is within this band, an acoustic multiplier applies.
-2. **Vibration Index ($S_v \in [0, 100]$)**:
-   - Evaluates `vibration_rms` representing ground displacement/acceleration from mechanical earth-moving or hydraulic pumping.
-3. **Environmental Cancellation (Rain Filter)**:
-   - Heavy rain causes elevated ambient acoustic noise without ground vibration.
-   - If `rain_detected = true` and `vibration_rms` is low, acoustic weight is dampened, preventing false rain alerts.
-4. **Composite Risk Score ($0 - 100$)**:
-   $$\text{Score} = \min(100, \text{round}(0.45 \cdot S_a + 0.45 \cdot S_v + \text{ContextBonus}))$$
-   - `0 - 30`: **NORMAL** (Ambient forest/river background)
-   - `31 - 60`: **ELEVATED** (Transient activity or heavy vehicular transit)
-   - `61 - 80`: **HIGH** (Sustained acoustic + seismic activity — Potential machinery)
-   - `81 - 100`: **CRITICAL** (Intense multi-signal convergence)
+#### 3.1 Local Ingestion Gateway (`edge/local_ingestion_server.py`)
+- Lightweight HTTP REST server listening on port `5000` with CORS enabled.
+- Accepts `POST /api/telemetry` and relays to Supabase while exposing `GET /api/latest` for local frontend dashboards.
+- Enables bench-testing and isolated local deployments without internet access.
 
-#### 3.2 Standard Scenarios Supported by Simulator
-- **Scenario 1 (Normal Ambient):** Low sound (~25–35 dB / 0.15 RMS), low vibration (~0.05 RMS), no rain $\rightarrow$ Score ~10–22.
-- **Scenario 2 (Tropical Rainstorm):** High sound (~65–75 dB / 0.65 RMS), low vibration (~0.08 RMS), rain detected $\rightarrow$ Score ~28–38 (Rain filter active).
-- **Scenario 3 (Passing Vehicle):** High sound spike, medium vibration, short duration $\rightarrow$ Score ~45–55.
-- **Scenario 4 (Possible Heavy Machinery):** High sound (0.75+ RMS), low-freq peak (110–140 Hz), high vibration (0.55+ RMS), no rain $\rightarrow$ Score 75–88 (Trigger alert).
-- **Scenario 5 (Civil / Road Construction):** High sound, periodic vibration, daytime $\rightarrow$ Score 60–70.
+#### 3.2 Direct Cloud REST & Realtime Sync (`src/config/supabase.ts`, `src/services/realSensorService.ts`)
+- Client connects via `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- Subscribes to `INSERT` on `sensor_readings` and `alerts` via Supabase Realtime channels.
+- Automatic reconnection and status reporting.
 
 #### Deliverables & Acceptance Criteria
-- [ ] Scoring engine produces deterministic scores matching the specification in Section 9 of the vision.
-- [ ] Scenario generator simulates continuous time-series stream for 3 default stations:
-  - `GG-001`: Pra River Basin
-  - `GG-002`: Atewa Forest Fringe
-  - `GG-003`: Tarkwa Community Border
-- [ ] Unit tests confirming rain filter dampening and machinery score escalation.
+- [x] Local ingestion server in `edge/local_ingestion_server.py`.
+- [x] Real-time Supabase service in `src/services/realSensorService.ts`.
+- [x] Configuration template in `.env.example`.
 
 ---
 
-### Phase 4: Interactive Web Dashboard & Realtime UI
+### Phase 4: Production Dashboard UI & Zero-Mock Refactor
 
-**Goal:** Construct an intuitive, high-aesthetic dashboard featuring real-time maps, sensor gauges, and historical trend charts.
+**Goal:** Cleanse all fake data from the web application and present real-time physical telemetry.
 
-#### 4.1 UI Views & Components
-1. **Executive Stats Bar:**
-   - Active Stations counter (e.g., 3/3 Online).
-   - Elevated / High Activity indicator badge.
-   - Open Alerts count requiring human verification.
-   - Network connectivity health status.
-2. **Interactive Station Map (`StationMap.tsx`):**
-   - Leaflet satellite/terrain toggle with dark tile overlay.
-   - Color-coded pulsing markers (Green = Normal, Amber = Elevated, Red = High Activity).
-   - Marker click opens quick telemetry inspection drawer with direct station drill-down.
-3. **Real-Time Sensor Telemetry Cards (`SensorCards.tsx`):**
-   - Sound Level gauge (RMS & estimated dB with dominant Hz).
-   - Vibration Level meter (RMS with seismic indicator).
-   - Temperature (°C), Relative Humidity (%), Atmospheric Pressure (hPa).
-   - Rain Status badge (Clear vs Rain Detected).
-4. **Historical Analytics Suite (`StationCharts.tsx`):**
-   - Dual-axis time-series chart showing Sound RMS & Vibration RMS over time.
-   - Activity Risk Score trend line with threshold markings (30, 60, 80).
-   - Microclimate correlation graph (Temp/Humidity vs Acoustic levels).
-   - Time-range selector: Last 15 minutes (live), Last 1 hour, Last 24 hours.
+#### 4.1 Zero-Mock Purge
+- Removed `generateInitialReadings` (synthetic sine/cosine waves) and fake alerts from `src/services/mockData.ts`.
+- Removed auto-ticking simulation loop from `src/services/simulatorService.ts`.
+- Replaced scenario injector drawer with the **Hardware Diagnostics & Ingestion Console** (`src/components/hardware/HardwareStatusModal.tsx`).
+- Updated `StationCharts.tsx` with clean awaiting-telemetry states when no physical sensor readings have arrived yet.
+
+#### 4.2 Real-Time Monitoring Views
+- **Fleet Hub**: High-level KPI cards and operational station grid.
+- **Station View**: 6-gauge real-time telemetry suite (Sound dB, Dominant Freq, Vibration RMS, Temperature, Humidity, Rain).
+- **Geospatial Map**: Leaflet interactive map with real GPS coordinates and risk color badges.
+- **Alerts Manager**: Section 10 human verification review console.
 
 #### Deliverables & Acceptance Criteria
-- [ ] Map renders properly with customized markers and interactive popups.
-- [ ] Real-time cards animate smoothly as new telemetry ticks arrive.
-- [ ] Charts dynamically refresh without flickering or layout shift.
+- [x] Zero mock data generated at runtime.
+- [x] Clean "Awaiting physical sensor telemetry" empty states.
+- [x] Hardware Diagnostics modal with live ingestion status, pinouts, and quickstart commands.
+- [x] TypeScript build compiles with 0 errors (`tsc -b && vite build`).
 
 ---
 
-### Phase 5: Alert Lifecycle & Verification Workflow
+### Phase 5: Multi-Signal Scoring Engine & On-Cloud / Edge Detection
 
-**Goal:** Implement the human-in-the-loop operational workflow allowing operators to review anomalies, inspect contributing sensor signals, and record review decisions.
+**Goal:** Accurately classify physical telemetry into environmental activity scores while dampening weather false alarms.
 
-#### 5.1 Alert Workflow Engine
-- When a station's activity score crosses $\ge 61$, an alert record is automatically created in `UNREVIEWED` status.
-- Alert Notification Banner and audio chime (optional toggle) appears on the dashboard.
+#### 5.1 Multi-Sensor Fusion Formula
+$$S_{\text{raw}} = 0.50 \times S_{\text{acoustic}} + 0.35 \times S_{\text{vibration}} + 0.15 \times S_{\text{baseline}}$$
 
-#### 5.2 Verification Drawer & Audit Actions
-- **Detailed Alert Inspector:**
-  - Station name, GPS coordinates, timestamp.
-  - Snapshot of sensor values at trigger moment (`sound_rms`, `vibration_rms`, `dominant_frequency`, `rain`).
-  - Standardized system description:
-    > *"Possible machinery-related activity detected. Human verification required."*
-- **State Transition Buttons:**
-  - `[Acknowledge]` $\rightarrow$ changes state to `ACKNOWLEDGED`.
-  - `[Investigate]` $\rightarrow$ changes state to `UNDER REVIEW` (adds field notes input).
-  - `[Resolve]` $\rightarrow$ marks `RESOLVED` (incident logged or addressed).
-  - `[Mark False Positive]` $\rightarrow$ flags `FALSE POSITIVE` (allows operator to note cause, e.g. "Known roadwork grader").
-- **Historical Audit Trail:** Complete changelog of reviewer timestamps and status changes.
+1. **Acoustic Sub-Score ($S_{\text{acoustic}}$)**:
+   - Evaluates amplitude ($RMS$) and applies frequency weighting if dominant frequency falls in the heavy diesel exhaust/engine range ($50\text{–}220\text{ Hz}$).
+2. **Vibration Sub-Score ($S_{\text{vibration}}$)**:
+   - Evaluates continuous mechanical oscillation from excavators and wash plants.
+3. **Rain Dampening Coefficient**:
+   $$\text{If } \text{rain\_detected} == \text{True}: \quad S_{\text{final}} = S_{\text{raw}} \times 0.75$$
+   - Prevents tropical rainstorms (which generate loud acoustic white noise but zero ground vibration) from triggering false alerts.
+
+#### 5.2 Risk Categorization
+- `0 - 34`: **NORMAL** (Ambient river/forest baseline)
+- `35 - 59`: **ELEVATED** (Unusual acoustic or vibrational noise)
+- `60 - 79`: **HIGH** (Machinery pattern detected; automated alert generated)
+- `80 - 100`: **CRITICAL** (Sustained heavy machinery signature)
 
 #### Deliverables & Acceptance Criteria
-- [ ] Alerts list with status filters (`All`, `Unreviewed`, `In Review`, `Resolved`).
-- [ ] Operator can update alert statuses with state persisting in database / mock store.
-- [ ] Explicit compliance with the responsible phrasing guidelines.
+- [x] Scoring engine in `src/utils/scoringEngine.ts` and `edge/sensor_agent.py`.
+- [x] Heavy diesel frequency band weighting (50–220 Hz).
+- [x] Rain dampening logic verified.
 
 ---
 
-### Phase 6: Live Scenario Injection & Presentation Mode
+### Phase 6: Human-in-the-Loop Verification & Audit Logging
 
-**Goal:** Provide an interactive demonstration control bar enabling live demonstrations for stakeholders, lecturers, or reviewers with zero friction.
+**Goal:** Guarantee that no automated system makes legal accusations without human inspection.
 
-#### 6.1 Demonstration Control Panel
-- Floating or collapsible bottom/sidebar drawer: **"Demo Scenario Injector"**.
-- One-click triggers:
-  - `[Normal Ambient]` $\rightarrow$ Sends calm river/forest telemetry to all stations.
-  - `[Simulate Rainstorm]` $\rightarrow$ Injects rain sensor `true` + high sound + low vibration; shows score staying below alert threshold.
-  - `[Trigger Machinery Event on GG-001]` $\rightarrow$ Gradually ramps Sound RMS to 0.78, Vibration RMS to 0.62, dominant frequency to 118 Hz over 10 seconds.
-  - `[Reset Simulation]` $\rightarrow$ Restores baseline conditions.
-- Step-by-step Guided Tour modal explaining the 10-step MVP demonstration flow from Section 23 of the vision.
+#### 6.1 Alert Lifecycle
+$$\text{UNREVIEWED} \longrightarrow \text{ACKNOWLEDGED} \longrightarrow \text{UNDER REVIEW} \longrightarrow \text{RESOLVED} \text{ / } \text{FALSE POSITIVE}$$
+
+- **Mandatory Responsible Phrasing**:
+  > *"Possible machinery-related activity detected. Human verification required."*
+- **Audit Logging**: Captures reviewer notes, resolution timestamp, and frozen snapshot readings.
 
 #### Deliverables & Acceptance Criteria
-- [ ] Demo controller triggers immediate visual response on dashboard, map, and charts.
-- [ ] Live demo transitions seamlessly from Normal $\rightarrow$ Alert $\rightarrow$ Human Verification $\rightarrow$ Resolution.
+- [x] Interactive Alert Review Modal in `src/components/alerts/AlertsManager.tsx`.
+- [x] Database persistence via `updateAlertStatus()` in `realSensorService.ts`.
 
 ---
 
-### Phase 7: Hardware & Edge Gateway Integration (Raspberry Pi)
+### Phase 7: Sensor Calibration & Bench Testing
 
-**Goal:** Connect physical sensors and a Raspberry Pi edge gateway pushing real telemetry to the cloud backend.
+**Goal:** Calibrate physical sensors for target deployment environments.
 
-#### 7.1 Hardware Bill of Materials & Wiring Blueprint
-| Component | Interface | Measurement | Raspberry Pi GPIO |
-|---|---|---|---|
-| **Raspberry Pi 4 / 3B+** | Host | Edge computation & processing | Linux OS |
-| **INMP441** | I2S (Digital Audio) | Sound RMS, FFT Dominant Frequency | GPIO 18 (CLK), 19 (FS), 20 (DIN) |
-| **MPU6050** | I2C | 3-Axis Acceleration & Vibration RMS | GPIO 2 (SDA), GPIO 3 (SCL) |
-| **BME280** | I2C | Temperature, Humidity, Barometric Pressure | GPIO 2 (SDA), GPIO 3 (SCL) |
-| **Rain Sensor Module** | Digital / ADC | Rain presence detection | GPIO 17 (Digital IN) |
-| **NEO-6M GPS** | UART | Latitude, Longitude, UTC timestamp | GPIO 14 (TX), GPIO 15 (RX) |
+#### 7.1 Calibration Utility (`edge/calibrate_sensors.py`)
+- Measures ambient acoustic noise floor in dB and RMS.
+- Computes accelerometer zero-G tare offsets ($X, Y, Z$) on stationary surfaces.
+- Generates `edge/calibration.json`.
 
-#### 7.2 Edge Client Software (`edge/`)
-- Lightweight Python daemon (`galamsey_agent.py`):
-  - Samples audio stream over I2S, calculates RMS amplitude and FFT spectral peak.
-  - Reads accelerometer at 50 Hz, computes root-mean-square vibration magnitude.
-  - Reads BME280 and rain sensor state every 5 seconds.
-  - Packages JSON payload matching the prototype data schema (Section 8).
-  - Posts telemetry to Supabase REST API via HTTPS (`/rest/v1/sensor_readings`) or local FastAPI broker.
-  - Implements offline disk queueing (SQLite / JSON buffer) to survive cellular/Wi-Fi drops.
-
-#### Deliverables & Acceptance Criteria
-- [ ] Complete Python edge collection scripts with error handling and retry logic.
-- [ ] Hardware wiring schematic diagram and setup instructions in `docs/hardware_setup.md`.
-- [ ] Seamless handover: Web dashboard receives real Pi telemetry using the exact same schema as simulated data.
+#### 7.2 Testing Checklist
+- [ ] Connect INMP441, speak/play low-frequency diesel engine audio, verify FFT frequency peak shifts to 80–130 Hz.
+- [ ] Tap/vibrate MPU-6050, verify Vibration RMS rises on dashboard.
+- [ ] Drop water on rain sensor, verify rain dampening indicator engages.
 
 ---
 
-### Phase 8: Polish, Production Hardening & Future Scaling
+### Phase 8: Field Enclosure, Solar Power & GSM/LoRa Deployment
 
-**Goal:** Prepare the system for presentation, field hardening, and technical handoff.
+**Goal:** Harden the system for autonomous deployment in Ghanaian river basins and forest reserves.
 
-#### 8.1 Polish & Documentation
-- Comprehensive `README.md` with quick-start instructions for running both local mock mode and live Supabase mode.
-- System demo video recording / screenshot walkthrough.
-- Performance optimization: Lazy-loading map tiles, memoized chart rendering, WebSocket throttling.
+#### 8.1 Environmental Enclosure (IP67)
+- Weatherproof polycarbonate junction box with acoustic mesh membrane for microphone and external rain sensor plate.
+- Mounting bracket for tree trunk / riverbank stake installation.
 
-#### 8.2 Future Roadmap (Post-MVP)
-- On-device Edge ML (TensorFlow Lite / Edge Impulse) for acoustic classification of excavator diesel vs chainsaws vs thunder.
-- LoRaWAN long-range low-power mesh connectivity for remote forest canopies without cellular coverage.
-- Solar PV + LiFePO4 battery power management telemetry.
+#### 8.2 Power Budgeting
+- $10\text{W}$ Monocrystalline Solar Panel + $12\text{V} / 5000\text{ mAh}$ LiFePO4 battery pack with MPPT solar charge controller.
+- Low-power sleep modes for ESP32 nodes ($< 15\text{ mA}$ average consumption).
+
+#### 8.3 Connectivity Redundancy
+- Primary: 4G LTE cellular module (SIM7600 / SIM800L).
+- Fallback: LoRaWAN 868/915 MHz long-range mesh for dense forest canopies without cell towers.
 
 ---
 
-## Detailed Task Checklist & Milestones
+## Task Milestones & Current Progress
 
 | Phase | Task Description | Status | Target Files |
 |---|---|---|---|
-| **1** | Initialize React 19 + TypeScript + Tailwind CSS | Pending | `package.json`, `vite.config.ts`, `tailwind.config.js` |
-| **1** | Build application shell, layout, theme tokens, navigation | Pending | `src/App.tsx`, `src/index.css`, `src/components/layout/*` |
-| **2** | Create PostgreSQL database schema & migrations | Pending | `supabase/schema.sql` |
-| **2** | Implement Supabase client & dual-mode mock data fallback | Pending | `src/config/supabase.ts`, `src/services/*` |
-| **3** | Implement multi-sensor scoring & rain dampening engine | Pending | `src/utils/scoringEngine.ts`, `src/types/index.ts` |
-| **3** | Implement realistic multi-station telemetry generator | Pending | `src/services/simulatorService.ts` |
-| **4** | Build Interactive Station Map with status markers | Pending | `src/components/map/StationMap.tsx` |
-| **4** | Build Real-time Sensor Metric Cards & gauges | Pending | `src/components/stations/SensorCards.tsx` |
-| **4** | Build Recharts historical trend & multi-metric charts | Pending | `src/components/charts/StationCharts.tsx` |
-| **5** | Build Alert Management Console & Verification Drawer | Pending | `src/components/alerts/AlertsManager.tsx` |
-| **5** | Implement audit trail & status update actions | Pending | `src/components/alerts/AlertReviewModal.tsx` |
-| **6** | Build Scenario Injection Controller for live demonstration | Pending | `src/components/simulator/ScenarioBar.tsx` |
-| **6** | Add 10-Step Guided Walkthrough Mode | Pending | `src/components/common/DemoTourModal.tsx` |
-| **7** | Develop Python edge telemetry client for Raspberry Pi | Pending | `edge/galamsey_agent.py`, `edge/requirements.txt` |
-| **7** | Author Raspberry Pi sensor wiring guide & hardware docs | Pending | `docs/hardware_setup.md` |
-| **8** | End-to-end verification, responsive testing & final docs | Pending | `README.md`, `walkthrough.md` |
+| **1** | PostgreSQL schema & realtime replication | **Completed** | `supabase/schema.sql` |
+| **1** | Supabase client & environment configuration | **Completed** | `src/config/supabase.ts`, `.env.example` |
+| **2** | Python physical sensor edge daemon | **Completed** | `edge/sensor_agent.py`, `edge/requirements.txt` |
+| **2** | ESP32 wireless node Arduino firmware | **Completed** | `edge/esp32_firmware/galamsey_sensor_node.ino` |
+| **2** | Hardware wiring blueprint & pinouts | **Completed** | `docs/hardware_setup.md` |
+| **3** | Local edge ingestion server & CORS bridge | **Completed** | `edge/local_ingestion_server.py` |
+| **3** | Realtime sensor service with live push | **Completed** | `src/services/realSensorService.ts` |
+| **4** | Purge mock data & fake sine tickers | **Completed** | `src/services/mockData.ts`, `src/services/simulatorService.ts` |
+| **4** | Hardware Diagnostics & Ingestion Console | **Completed** | `src/components/hardware/HardwareStatusModal.tsx` |
+| **4** | Awaiting telemetry empty states | **Completed** | `src/components/charts/StationCharts.tsx` |
+| **5** | Multi-sensor scoring with rain dampening | **Completed** | `src/utils/scoringEngine.ts`, `edge/sensor_agent.py` |
+| **6** | Human verification alert workflow | **Completed** | `src/components/alerts/AlertsManager.tsx` |
+| **7** | Interactive sensor calibration script | **Completed** | `edge/calibrate_sensors.py` |
+| **8** | Field bench testing & physical sensor stream | **Next Step** | Connect physical hardware & run `sensor_agent.py` |
 
 ---
 
-## Next Action
+## Next Steps for the Operator
 
-With the plan finalized, we will proceed immediately to **Phase 1 (Project Scaffolding & Design Foundation)** and **Phase 2 (Database Schema & Service Layer)**.
+With all mock data removed and the physical edge architecture deployed:
+1. **Connect your sensors** according to [docs/hardware_setup.md](file:///c:/Users/VhimBoss/Desktop/Galamsey%20Activity%20Detector/docs/hardware_setup.md).
+2. **Install edge dependencies**:
+   ```bash
+   pip install -r edge/requirements.txt
+   ```
+3. **Calibrate baselines**:
+   ```bash
+   python edge/calibrate_sensors.py
+   ```
+4. **Launch physical telemetry ingestion**:
+   ```bash
+   python edge/sensor_agent.py --station GG-001
+   ```
+   The web dashboard will instantly display the live incoming sensor telemetry in real-time.

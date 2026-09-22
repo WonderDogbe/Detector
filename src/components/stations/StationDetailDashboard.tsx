@@ -3,7 +3,7 @@ import {
   ArrowLeft,
   MapPin,
   Radio,
-  Sliders,
+  Cpu,
   AlertTriangle,
 } from 'lucide-react';
 import type {
@@ -26,7 +26,8 @@ interface StationDetailDashboardProps {
   alerts: Alert[];
   onBackToFleet: () => void;
   onSelectStation: (stationId: string) => void;
-  onOpenScenarios: () => void;
+  onOpenScenarios?: () => void;
+  onOpenHardware?: () => void;
 }
 
 export const StationDetailDashboard: FC<StationDetailDashboardProps> = ({
@@ -39,7 +40,7 @@ export const StationDetailDashboard: FC<StationDetailDashboardProps> = ({
   alerts,
   onBackToFleet,
   onSelectStation,
-  onOpenScenarios,
+  onOpenHardware,
 }) => {
   const stationAlerts = alerts.filter((a) => a.station_id === station.id);
   const score = reading?.activity_score || 0;
@@ -98,13 +99,13 @@ export const StationDetailDashboard: FC<StationDetailDashboardProps> = ({
             </select>
           </div>
 
-          {/* Test anomaly injector */}
+          {/* Hardware Diagnostics modal trigger */}
           <button
-            onClick={onOpenScenarios}
+            onClick={onOpenHardware}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-zinc-200 text-zinc-950 transition-colors cursor-pointer shadow-sm"
           >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Simulate Anomaly</span>
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Hardware Diagnostics</span>
           </button>
         </div>
       </div>

@@ -1,0 +1,25 @@
+# GalamseyGuard Physical Edge Agent Dependencies
+# Install via: pip install -r requirements.txt
+
+# Core Networking & Cloud Ingestion
+requests>=2.31.0
+supabase>=2.4.0
+python-dotenv>=1.0.0
+
+# Numerical & Signal Processing (Acoustic FFT & Vibration RMS)
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Hardware & Audio Stream Drivers (Raspberry Pi / Linux / PC)
+# For audio stream capture from I2S mic or USB microphone:
+sounddevice>=0.4.6
+
+# Hardware I2C / GPIO Drivers (Raspberry Pi / Linux SBC)
+# Note: On Raspberry Pi, enable I2C via 'sudo raspi-config'
+smbus2>=0.4.3
+adafruit-circuitpython-bme280>=2.6.24
+adafruit-circuitpython-mpu6050>=1.2.14
+
+# GPS Serial NMEA Parsing
+pyserial>=3.5
+pynmea2>=1.19.0

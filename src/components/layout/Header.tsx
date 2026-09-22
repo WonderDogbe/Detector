@@ -1,9 +1,7 @@
 import type { FC } from 'react';
 import {
   ShieldAlert,
-  Pause,
-  Sliders,
-  Sparkles,
+  Cpu,
   MapPin,
 } from 'lucide-react';
 import type { Station } from '../../types';
@@ -13,10 +11,12 @@ interface HeaderProps {
   selectedStationId: string;
   onSelectStation: (id: string) => void;
   unreviewedAlertsCount: number;
-  isRunning: boolean;
-  onToggleSimulation: () => void;
-  onOpenScenarios: () => void;
-  onOpenTour: () => void;
+  isRunning?: boolean;
+  isConnected?: boolean;
+  onToggleSimulation?: () => void;
+  onOpenScenarios?: () => void;
+  onOpenHardware: () => void;
+  onOpenTour?: () => void;
   activeTab: 'overview' | 'map' | 'stations' | 'alerts';
   setActiveTab: (tab: 'overview' | 'map' | 'stations' | 'alerts') => void;
 }
@@ -26,10 +26,8 @@ export const Header: FC<HeaderProps> = ({
   selectedStationId,
   onSelectStation,
   unreviewedAlertsCount,
-  isRunning,
-  onToggleSimulation,
-  onOpenScenarios,
-  onOpenTour,
+  isConnected = true,
+  onOpenHardware,
   activeTab,
   setActiveTab,
 }) => {
@@ -57,13 +55,13 @@ export const Header: FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Mobile Tour Trigger */}
+          {/* Mobile Hardware Trigger */}
           <button
-            onClick={onOpenTour}
+            onClick={onOpenHardware}
             className="md:hidden p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800"
-            title="Demo Guide"
+            title="Hardware & Sensor Console"
           >
-            <Sparkles className="w-4 h-4" />
+            <Cpu className="w-4 h-4" />
           </button>
         </div>
 
@@ -135,46 +133,33 @@ export const Header: FC<HeaderProps> = ({
             </select>
           </div>
 
-          {/* Simulator Play/Pause Status */}
-          <button
-            onClick={onToggleSimulation}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
-              isRunning
-                ? 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-850 hover:border-zinc-700'
-                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
-            }`}
-            title={isRunning ? 'Simulation running automatically' : 'Simulation paused'}
+          {/* Real-time Stream Status Badge */}
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border bg-zinc-900 border-zinc-800 transition-colors`}
+            title={
+              isConnected
+                ? 'Listening for physical sensor telemetry packets'
+                : 'Connecting to edge ingestion stream'
+            }
           >
-            {isRunning ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="hidden sm:inline">Telemetry Live</span>
-              </>
-            ) : (
-              <>
-                <Pause className="w-3 h-3 text-zinc-400" />
-                <span className="hidden sm:inline">Paused</span>
-              </>
-            )}
-          </button>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+              }`}
+            />
+            <span className="hidden sm:inline text-zinc-300">
+              {isConnected ? 'Stream Active' : 'Connecting'}
+            </span>
+          </div>
 
-          {/* Demo Scenario Trigger Button - Sleek Pure White Accent */}
+          {/* Physical Hardware & Edge Console Trigger Button */}
           <button
-            onClick={onOpenScenarios}
+            onClick={onOpenHardware}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-zinc-200 text-zinc-950 shadow-sm transition-all cursor-pointer"
+            title="Open Physical Hardware & Edge Gateway Console"
           >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Scenario Injector</span>
-          </button>
-
-          {/* Guided Tour Modal Trigger */}
-          <button
-            onClick={onOpenTour}
-            className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer"
-            title="10-Step MVP Demo Guide"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Guide</span>
+            <Cpu className="w-3.5 h-3.5 text-zinc-950" />
+            <span>Hardware & Sensors</span>
           </button>
         </div>
       </div>

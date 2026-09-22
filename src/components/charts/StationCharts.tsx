@@ -58,6 +58,28 @@ export const StationCharts: FC<StationChartsProps> = ({
   const currentScore =
     chartData.length > 0 ? chartData[chartData.length - 1].activityScore : 0;
 
+  if (readings.length === 0) {
+    return (
+      <div className="glass-panel p-8 rounded-2xl text-center border border-zinc-800 bg-zinc-900/60 space-y-3">
+        <div className="w-12 h-12 rounded-2xl bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center mx-auto text-zinc-400">
+          <Activity className="w-6 h-6 animate-pulse text-zinc-400" />
+        </div>
+        <div>
+          <h4 className="text-sm font-semibold text-white">
+            Awaiting Physical Sensor Telemetry
+          </h4>
+          <p className="text-xs text-zinc-400 max-w-md mx-auto mt-1">
+            No readings recorded yet for this station. Connect your physical sensors (INMP441, MPU-6050, BME280) and run the edge client to stream live telemetry.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-zinc-400">
+          <span>Command:</span>
+          <span className="text-emerald-400 font-semibold">python edge/sensor_agent.py</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Charts Header with Time Filter */}

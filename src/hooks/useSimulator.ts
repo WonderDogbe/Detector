@@ -2,12 +2,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { simulatorService } from '../services/simulatorService';
 import type {
   SensorReading,
-  SimulationScenario,
   AlertStatus,
 } from '../types';
 
-export function useSimulator(initialStationId?: string) {
-  const [, setVersion] = useState(0);
+export function useSensorFleet(initialStationId?: string) {
+  const [version, setVersion] = useState(0);
   const [selectedStationId, setSelectedStationId] = useState<string>(
     initialStationId || 'GG-001'
   );
@@ -19,7 +18,11 @@ export function useSimulator(initialStationId?: string) {
     return unsubscribe;
   }, []);
 
-  const stations = useMemo(() => simulatorService.getStations(), []);
+  const stations = useMemo(
+    () => simulatorService.getStations(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version]
+  );
 
   const selectedStation = useMemo(
     () => simulatorService.getStation(selectedStationId) || stations[0],
@@ -28,12 +31,14 @@ export function useSimulator(initialStationId?: string) {
 
   const latestReading = useMemo(
     () => simulatorService.getLatestReading(selectedStationId),
-    [selectedStationId]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedStationId, version]
   );
 
   const historicalReadings = useMemo(
     () => simulatorService.getHistoricalReadings(selectedStationId),
-    [selectedStationId]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedStationId, version]
   );
 
   const allLatestReadings = useMemo(() => {
@@ -42,9 +47,14 @@ export function useSimulator(initialStationId?: string) {
       map[s.id] = simulatorService.getLatestReading(s.id);
     });
     return map;
-  }, [stations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stations, version]);
 
-  const alerts = useMemo(() => simulatorService.getAlerts(), []);
+  const alerts = useMemo(
+    () => simulatorService.getAlerts(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version]
+  );
 
   const unreviewedAlertsCount = useMemo(
     () => alerts.filter((a) => a.status === 'UNREVIEWED').length,
@@ -53,26 +63,21 @@ export function useSimulator(initialStationId?: string) {
 
   const health = useMemo(
     () => simulatorService.getHealth(selectedStationId),
-    [selectedStationId]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedStationId, version]
   );
 
-  const activeScenario = useMemo(
-    () => simulatorService.getActiveScenario(selectedStationId),
-    [selectedStationId]
+  const isConnected = useMemo(
+    () => simulatorService.isRunning(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version]
   );
 
-  const isRunning = useMemo(() => simulatorService.isRunning(), []);
-
-  const triggerScenario = useCallback(
-    (scenario: SimulationScenario, stationId?: string, durationSeconds?: number) => {
-      simulatorService.triggerScenario(scenario, stationId, durationSeconds);
-    },
-    []
+  const lastPacketTime = useMemo(
+    () => simulatorService.getLastPacketTimestamp(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version]
   );
-
-  const resetToNormal = useCallback(() => {
-    simulatorService.resetToNormal();
-  }, []);
 
   const updateAlertStatus = useCallback(
     (alertId: string, status: AlertStatus, reviewerNotes?: string) => {
@@ -81,12 +86,8 @@ export function useSimulator(initialStationId?: string) {
     []
   );
 
-  const toggleSimulation = useCallback(() => {
-    if (simulatorService.isRunning()) {
-      simulatorService.stopAutoTick();
-    } else {
-      simulatorService.startAutoTick();
-    }
+  const ingestRealReading = useCallback((reading: SensorReading) => {
+    simulatorService.ingestRealReading(reading);
   }, []);
 
   return {
@@ -100,11 +101,18 @@ export function useSimulator(initialStationId?: string) {
     alerts,
     unreviewedAlertsCount,
     health,
-    activeScenario,
-    isRunning,
-    triggerScenario,
-    resetToNormal,
+    isConnected,
+    lastPacketTime,
     updateAlertStatus,
-    toggleSimulation,
+    ingestRealReading,
+    // Backward compatibility aliases
+    isRunning: isConnected,
+    activeScenario: 'NORMAL' as const,
+    triggerScenario: () => {},
+    resetToNormal: () => {},
+    toggleSimulation: () => {},
   };
 }
+
+// Alias for backwards compatibility across existing components
+export const useSimulator = useSensorFleet;

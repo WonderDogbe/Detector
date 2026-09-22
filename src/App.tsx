@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { useSimulator } from './hooks/useSimulator';
+import { useSensorFleet } from './hooks/useSimulator';
 import { Header } from './components/layout/Header';
 import { MetricsBar } from './components/dashboard/MetricsBar';
 import { StationFleetList } from './components/stations/StationFleetList';
 import { StationDetailDashboard } from './components/stations/StationDetailDashboard';
 import { StationMap } from './components/map/StationMap';
 import { AlertsManager } from './components/alerts/AlertsManager';
-import { ScenarioBar } from './components/simulator/ScenarioBar';
-import { DemoTourModal } from './components/common/DemoTourModal';
-import { Sliders } from 'lucide-react';
+import { HardwareStatusModal } from './components/hardware/HardwareStatusModal';
+import { Cpu } from 'lucide-react';
 
 export function App() {
   const {
@@ -22,27 +21,16 @@ export function App() {
     alerts,
     unreviewedAlertsCount,
     health,
-    activeScenario,
-    isRunning,
-    triggerScenario,
-    resetToNormal,
+    isConnected,
+    lastPacketTime,
     updateAlertStatus,
-    toggleSimulation,
-  } = useSimulator();
+  } = useSensorFleet();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'stations' | 'alerts'>(
     'overview'
   );
   const [viewMode, setViewMode] = useState<'fleet' | 'station'>('fleet');
-  const [isScenarioBarOpen, setIsScenarioBarOpen] = useState<boolean>(false);
-  const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
-
-  // Trigger machinery demo shortcut
-  const handleTriggerMachineryDemo = () => {
-    setSelectedStationId('GG-001');
-    setViewMode('station');
-    triggerScenario('MACHINERY', 'GG-001', 60);
-  };
+  const [isHardwareModalOpen, setIsHardwareModalOpen] = useState<boolean>(false);
 
   // Open single station dashboard
   const handleOpenStationDashboard = (stationId: string) => {
@@ -72,10 +60,8 @@ export function App() {
         selectedStationId={selectedStationId}
         onSelectStation={handleHeaderSelectStation}
         unreviewedAlertsCount={unreviewedAlertsCount}
-        isRunning={isRunning}
-        onToggleSimulation={toggleSimulation}
-        onOpenScenarios={() => setIsScenarioBarOpen(true)}
-        onOpenTour={() => setIsTourOpen(true)}
+        isConnected={isConnected}
+        onOpenHardware={() => setIsHardwareModalOpen(true)}
         activeTab={activeTab}
         setActiveTab={handleTabChange}
       />
@@ -118,7 +104,7 @@ export function App() {
               setActiveTab('overview');
             }}
             onSelectStation={(id) => setSelectedStationId(id)}
-            onOpenScenarios={() => setIsScenarioBarOpen(true)}
+            onOpenHardware={() => setIsHardwareModalOpen(true)}
           />
         )}
 
@@ -135,11 +121,11 @@ export function App() {
                 </p>
               </div>
               <button
-                onClick={() => setIsScenarioBarOpen(true)}
+                onClick={() => setIsHardwareModalOpen(true)}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-zinc-200 text-zinc-950 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
               >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>Inject Scenario</span>
+                <Cpu className="w-3.5 h-3.5" />
+                <span>Hardware & Sensors</span>
               </button>
             </div>
             <StationMap
@@ -169,31 +155,22 @@ export function App() {
         )}
       </main>
 
-      {/* 3. Live Scenario Injector Drawer */}
-      <ScenarioBar
-        isOpen={isScenarioBarOpen}
-        onClose={() => setIsScenarioBarOpen(false)}
+      {/* 3. Physical Hardware Diagnostics & Ingestion Console */}
+      <HardwareStatusModal
+        isOpen={isHardwareModalOpen}
+        onClose={() => setIsHardwareModalOpen(false)}
         stations={stations}
         selectedStationId={selectedStationId}
         onSelectStation={setSelectedStationId}
-        activeScenario={activeScenario}
-        onTriggerScenario={triggerScenario}
-        onResetToNormal={resetToNormal}
+        lastPacketTime={lastPacketTime}
+        isConnected={isConnected}
       />
 
-      {/* 4. Guided Demo Tour Modal */}
-      <DemoTourModal
-        isOpen={isTourOpen}
-        onClose={() => setIsTourOpen(false)}
-        onTriggerMachineryDemo={handleTriggerMachineryDemo}
-        onNavigateToAlerts={() => setActiveTab('alerts')}
-      />
-
-      {/* 5. Minimal Global Footer */}
+      {/* 4. Minimal Global Footer */}
       <footer className="mt-12 border-t border-zinc-800/80 py-4 px-6 text-center text-xs text-zinc-500 bg-zinc-950">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="text-zinc-400 font-mono text-[11px]">
-            GalamseyGuard Prototype • IoT Environmental Sensor & Heavy Machinery Detection Framework
+            GalamseyGuard • Physical IoT Multi-Sensor Ingestion Pipeline & Activity Detector
           </span>
           <span className="text-zinc-500">
             Compliant with Section 10: Human Verification Standard
