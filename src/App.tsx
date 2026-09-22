@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useSimulator } from './hooks/useSimulator';
 import { Header } from './components/layout/Header';
 import { MetricsBar } from './components/dashboard/MetricsBar';
+import { StationFleetList } from './components/stations/StationFleetList';
+import { StationDetailDashboard } from './components/stations/StationDetailDashboard';
 import { StationMap } from './components/map/StationMap';
-import { SensorCards } from './components/stations/SensorCards';
-import { StationCharts } from './components/charts/StationCharts';
 import { AlertsManager } from './components/alerts/AlertsManager';
 import { ScenarioBar } from './components/simulator/ScenarioBar';
 import { DemoTourModal } from './components/common/DemoTourModal';
-import { MapPin, Activity, ArrowRight, Sliders } from 'lucide-react';
+import { Sliders } from 'lucide-react';
 
 export function App() {
   const {
@@ -33,184 +33,110 @@ export function App() {
   const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'stations' | 'alerts'>(
     'overview'
   );
+  const [viewMode, setViewMode] = useState<'fleet' | 'station'>('fleet');
   const [isScenarioBarOpen, setIsScenarioBarOpen] = useState<boolean>(false);
   const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
 
   // Trigger machinery demo shortcut
   const handleTriggerMachineryDemo = () => {
     setSelectedStationId('GG-001');
+    setViewMode('station');
     triggerScenario('MACHINERY', 'GG-001', 60);
   };
 
+  // Open single station dashboard
+  const handleOpenStationDashboard = (stationId: string) => {
+    setSelectedStationId(stationId);
+    setViewMode('station');
+  };
+
+  const handleHeaderSelectStation = (stationId: string) => {
+    setSelectedStationId(stationId);
+    setViewMode('station');
+  };
+
+  const handleTabChange = (tab: 'overview' | 'map' | 'stations' | 'alerts') => {
+    setActiveTab(tab);
+    if (tab === 'overview') {
+      setViewMode('fleet');
+    } else if (tab === 'stations') {
+      setViewMode('station');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#070B12] text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col font-sans selection:bg-zinc-700 selection:text-white">
       {/* 1. Global Navigation & Top Header */}
       <Header
         stations={stations}
         selectedStationId={selectedStationId}
-        onSelectStation={setSelectedStationId}
+        onSelectStation={handleHeaderSelectStation}
         unreviewedAlertsCount={unreviewedAlertsCount}
         isRunning={isRunning}
         onToggleSimulation={toggleSimulation}
         onOpenScenarios={() => setIsScenarioBarOpen(true)}
         onOpenTour={() => setIsTourOpen(true)}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
       />
 
       {/* 2. Main Body Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Global KPI Metrics Bar */}
-        <MetricsBar
-          stations={stations}
-          allLatestReadings={allLatestReadings}
-          alerts={alerts}
-          unreviewedAlertsCount={unreviewedAlertsCount}
-        />
+        {/* OVERVIEW / FLEET VIEW: Exact 2 cards + All Online Stations grid */}
+        {activeTab === 'overview' && viewMode === 'fleet' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* The 2 Hero Cards: Stations Online Card & Alerts Card */}
+            <MetricsBar
+              stations={stations}
+              allLatestReadings={allLatestReadings}
+              alerts={alerts}
+              unreviewedAlertsCount={unreviewedAlertsCount}
+              onViewAlerts={() => setActiveTab('alerts')}
+            />
 
-        {/* Dynamic View Tab Rendering */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Station Quick Selector Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {stations.map((st) => {
-                const reading = allLatestReadings[st.id];
-                const score = reading?.activity_score || 0;
-                const isSelected = st.id === selectedStationId;
-
-                return (
-                  <button
-                    key={st.id}
-                    onClick={() => setSelectedStationId(st.id)}
-                    className={`p-3.5 rounded-xl text-left border transition-all glass-panel cursor-pointer ${
-                      isSelected
-                        ? 'border-cyan-400/80 ring-2 ring-cyan-500/30 bg-slate-800/80 shadow-lg'
-                        : 'border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono text-cyan-400 font-bold">
-                        {st.id}
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          score >= 61
-                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse'
-                            : score >= 31
-                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        }`}
-                      >
-                        Score: {score}
-                      </span>
-                    </div>
-                    <div className="text-sm font-display font-semibold text-slate-100 mt-1 truncate">
-                      {st.name}
-                    </div>
-                    <div className="text-xs text-slate-400 mt-0.5 truncate flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
-                      {st.location_name}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Split Grid: Interactive Map + Real-time Sensor Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Map Column */}
-              <div className="lg:col-span-7 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4 text-emerald-400" />
-                    Geospatial Deployment Map
-                  </h3>
-                  <button
-                    onClick={() => setActiveTab('map')}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Expand Map</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-                <StationMap
-                  stations={stations}
-                  selectedStationId={selectedStationId}
-                  onSelectStation={setSelectedStationId}
-                  allLatestReadings={allLatestReadings}
-                />
-              </div>
-
-              {/* Active Station Summary Telemetry */}
-              <div className="lg:col-span-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
-                    <Activity className="w-4 h-4 text-cyan-400" />
-                    Live Edge Telemetry ({selectedStation.id})
-                  </h3>
-                  <button
-                    onClick={() => setActiveTab('stations')}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Full Analytics</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-
-                <SensorCards
-                  station={selectedStation}
-                  reading={latestReading}
-                  health={health}
-                />
-              </div>
-            </div>
-
-            {/* Historical Charts for Selected Station */}
-            <div className="pt-2">
-              <StationCharts
-                station={selectedStation}
-                readings={historicalReadings}
-              />
-            </div>
-
-            {/* Quick Alerts Section */}
-            <div className="pt-4">
-              <AlertsManager
-                alerts={alerts.slice(0, 3)}
-                onUpdateStatus={updateAlertStatus}
-                onSelectStation={(id) => {
-                  setSelectedStationId(id);
-                  setActiveTab('stations');
-                }}
-              />
-              {alerts.length > 3 && (
-                <div className="text-center mt-3">
-                  <button
-                    onClick={() => setActiveTab('alerts')}
-                    className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 py-2 px-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors"
-                  >
-                    View All {alerts.length} Incidents in Audit Console →
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* All Online Stations Grid with "View Station Dashboard" */}
+            <StationFleetList
+              stations={stations}
+              allLatestReadings={allLatestReadings}
+              onSelectAndOpenStation={handleOpenStationDashboard}
+            />
           </div>
         )}
 
+        {/* DEDICATED STATION DASHBOARD VIEW */}
+        {(activeTab === 'stations' || (activeTab === 'overview' && viewMode === 'station')) && (
+          <StationDetailDashboard
+            station={selectedStation}
+            stations={stations}
+            reading={latestReading}
+            health={health}
+            historicalReadings={historicalReadings}
+            allLatestReadings={allLatestReadings}
+            alerts={alerts}
+            onBackToFleet={() => {
+              setViewMode('fleet');
+              setActiveTab('overview');
+            }}
+            onSelectStation={(id) => setSelectedStationId(id)}
+            onOpenScenarios={() => setIsScenarioBarOpen(true)}
+          />
+        )}
+
+        {/* FULL GEOSPATIAL MAP VIEW */}
         {activeTab === 'map' && (
-          <div className="space-y-4">
-            <div className="glass-panel p-4 rounded-xl flex items-center justify-between">
+          <div className="space-y-4 animate-fade-in">
+            <div className="glass-panel p-4 rounded-xl flex items-center justify-between border border-zinc-800 bg-zinc-900/60">
               <div>
-                <h2 className="font-display font-bold text-base text-slate-100">
-                  Full Geospatial Sensor Grid
+                <h2 className="font-display font-bold text-base text-white tracking-tight">
+                  Full Geospatial Sensor Grid — Southern Ghana
                 </h2>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-zinc-400">
                   Real-time telemetry overlays mapped across Pra River, Atewa Forest, and Tarkwa mining peripheries
                 </p>
               </div>
               <button
                 onClick={() => setIsScenarioBarOpen(true)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-zinc-200 text-zinc-950 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
               >
                 <Sliders className="w-3.5 h-3.5" />
                 <span>Inject Scenario</span>
@@ -219,35 +145,27 @@ export function App() {
             <StationMap
               stations={stations}
               selectedStationId={selectedStationId}
-              onSelectStation={setSelectedStationId}
+              onSelectStation={(id) => {
+                setSelectedStationId(id);
+                setViewMode('station');
+              }}
               allLatestReadings={allLatestReadings}
             />
           </div>
         )}
 
-        {activeTab === 'stations' && (
-          <div className="space-y-6">
-            <SensorCards
-              station={selectedStation}
-              reading={latestReading}
-              health={health}
-            />
-            <StationCharts
-              station={selectedStation}
-              readings={historicalReadings}
+        {/* INCIDENT AUDIT & HUMAN VERIFICATION CONSOLE */}
+        {activeTab === 'alerts' && (
+          <div className="animate-fade-in">
+            <AlertsManager
+              alerts={alerts}
+              onUpdateStatus={updateAlertStatus}
+              onSelectStation={(id) => {
+                setSelectedStationId(id);
+                setViewMode('station');
+              }}
             />
           </div>
-        )}
-
-        {activeTab === 'alerts' && (
-          <AlertsManager
-            alerts={alerts}
-            onUpdateStatus={updateAlertStatus}
-            onSelectStation={(id) => {
-              setSelectedStationId(id);
-              setActiveTab('stations');
-            }}
-          />
         )}
       </main>
 
@@ -272,13 +190,13 @@ export function App() {
       />
 
       {/* 5. Minimal Global Footer */}
-      <footer className="mt-12 border-t border-slate-800/80 py-4 px-6 text-center text-xs text-slate-500 bg-[#060911]">
+      <footer className="mt-12 border-t border-zinc-800/80 py-4 px-6 text-center text-xs text-zinc-500 bg-zinc-950">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>
+          <span className="text-zinc-400 font-mono text-[11px]">
             GalamseyGuard Prototype • IoT Environmental Sensor & Heavy Machinery Detection Framework
           </span>
-          <span className="text-slate-400">
-            Compliant with Section 10: "Human verification required"
+          <span className="text-zinc-500">
+            Compliant with Section 10: Human Verification Standard
           </span>
         </div>
       </footer>

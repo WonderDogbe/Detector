@@ -32,7 +32,7 @@ const TOUR_STEPS = [
     step: 2,
     title: '2. Multi-Station Geospatial Grid',
     description:
-      'View monitoring nodes (GG-001 River Area, GG-002 Forest Area, GG-003 Community Area) on the interactive map. Markers glow and pulse according to their real-time activity level.',
+      'View monitoring nodes (GG-001 River Area, GG-002 Forest Area, GG-003 Community Area) on the interactive map. Markers indicate real-time activity level with subtle status rings.',
     highlight: 'Click any marker on the map to inspect instant telemetry and switch station focus.',
     icon: ShieldAlert,
   },
@@ -57,7 +57,7 @@ const TOUR_STEPS = [
     title: '5. Machinery Pattern Identification',
     description:
       'Heavy machinery (excavators, diesel generators, wash plants) produces high sound and low-frequency vibration (50–220 Hz) concurrently with no rain.',
-    highlight: 'Click "Trigger Machinery Demo" below to simulate an acute surge on Station GG-001.',
+    highlight: 'Click "Simulate Anomaly" below to trigger a machinery surge on Station GG-001.',
     actionButton: true,
     icon: AlertTriangle,
   },
@@ -95,40 +95,40 @@ export const DemoTourModal: FC<DemoTourModalProps> = ({
 
   const handlePrev = () => {
     if (currentStepIndex > 0) {
-      setCurrentStepIndex((prev) => prev - 1);
+      setCurrentStepIndex((prev) => prev + 1);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-lg glass-panel rounded-2xl border border-cyan-500/40 p-6 shadow-2xl relative bg-[#0B1120]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-700 p-6 shadow-2xl relative bg-zinc-950">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800"
+          className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-900 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Step Indicator Header */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className="p-2 rounded-xl bg-cyan-500/15 text-cyan-400">
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200">
             <StepIcon className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
+            <span className="text-xs font-mono font-medium uppercase tracking-wider text-zinc-400">
               Prototype Demonstration Walkthrough
             </span>
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-1">
               {TOUR_STEPS.map((s, idx) => (
                 <div
                   key={s.step}
-                  className={`h-1.5 rounded-full transition-all ${
+                  className={`h-1 rounded-full transition-all ${
                     idx === currentStepIndex
-                      ? 'w-6 bg-cyan-400'
+                      ? 'w-6 bg-white'
                       : idx < currentStepIndex
-                      ? 'w-2.5 bg-emerald-500'
-                      : 'w-2.5 bg-slate-800'
+                      ? 'w-2 bg-zinc-500'
+                      : 'w-2 bg-zinc-800'
                   }`}
                 />
               ))}
@@ -138,15 +138,15 @@ export const DemoTourModal: FC<DemoTourModalProps> = ({
 
         {/* Step Title & Details */}
         <div className="mt-4">
-          <h3 className="font-display font-bold text-lg text-slate-100">
+          <h3 className="font-display font-bold text-base text-white tracking-tight">
             {currentStep.title}
           </h3>
-          <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+          <p className="text-xs sm:text-sm text-zinc-300 mt-2 leading-relaxed">
             {currentStep.description}
           </p>
 
-          <div className="mt-4 p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-amber-300/90 flex items-start gap-2">
-            <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="mt-4 p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
             <span>{currentStep.highlight}</span>
           </div>
 
@@ -158,7 +158,7 @@ export const DemoTourModal: FC<DemoTourModalProps> = ({
                   onTriggerMachineryDemo();
                   handleNext();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white shadow-lg shadow-rose-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-white hover:bg-zinc-200 text-zinc-950 shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
                 <AlertTriangle className="w-4 h-4" />
                 <span>Simulate Heavy Machinery Anomaly on GG-001</span>
@@ -174,7 +174,7 @@ export const DemoTourModal: FC<DemoTourModalProps> = ({
                   onNavigateToAlerts();
                   onClose();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-white hover:bg-zinc-200 text-zinc-950 shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
                 <UserCheck className="w-4 h-4" />
                 <span>Open Human Verification Console</span>
@@ -184,27 +184,27 @@ export const DemoTourModal: FC<DemoTourModalProps> = ({
         </div>
 
         {/* Navigation Footer */}
-        <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
+        <div className="mt-6 pt-4 border-t border-zinc-800 flex items-center justify-between">
           <button
             onClick={handlePrev}
             disabled={currentStepIndex === 0}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors ${
               currentStepIndex === 0
-                ? 'opacity-40 cursor-not-allowed text-slate-500'
-                : 'text-slate-300 hover:bg-slate-800'
+                ? 'opacity-30 cursor-not-allowed text-zinc-600'
+                : 'text-zinc-300 hover:bg-zinc-900 hover:text-white'
             }`}
           >
             <ChevronLeft className="w-4 h-4" />
             <span>Previous</span>
           </button>
 
-          <span className="text-xs text-slate-400 font-mono">
+          <span className="text-xs text-zinc-400 font-mono">
             {currentStepIndex + 1} / {TOUR_STEPS.length}
           </span>
 
           <button
             onClick={handleNext}
-            className="px-4 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white flex items-center gap-1 transition-all cursor-pointer shadow-md shadow-cyan-900/30"
+            className="px-4 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-zinc-200 text-zinc-950 flex items-center gap-1 transition-all cursor-pointer shadow-sm"
           >
             <span>{currentStepIndex === TOUR_STEPS.length - 1 ? 'Finish' : 'Next'}</span>
             <ChevronRight className="w-4 h-4" />

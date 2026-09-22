@@ -9,13 +9,15 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: #070B12;
-    color: #F1F5F9;
+    background-color: #09090b;
+    color: #f4f4f5;
     overflow-x: hidden;
+    letter-spacing: -0.01em;
   }
 
   h1, h2, h3, h4, .font-display {
     font-family: var(--font-display);
+    letter-spacing: -0.02em;
   }
 
   code, pre, .font-mono {
@@ -23,91 +25,91 @@
   }
 }
 
-/* Custom scrollbars */
+/* Custom sleek scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #0B111D;
+  background: #09090b;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1E293B;
+  background: #27272a;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #3f3f46;
 }
 
-/* Glassmorphism utility classes */
+/* Natural Monochrome Glassmorphism Cards */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(51, 65, 85, 0.4);
+  background: rgba(18, 18, 20, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-panel-hover {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .glass-panel-hover:hover {
-  background: rgba(19, 30, 53, 0.85);
-  border-color: rgba(99, 102, 241, 0.4);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  background: rgba(24, 24, 28, 0.85);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.6);
 }
 
-/* Radar pulse animation for map and sensor markers */
-@keyframes radar-pulse {
+/* Refined radar pulse for map and sensor markers */
+@keyframes radar-pulse-neutral {
   0% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
   }
   70% {
     transform: scale(1);
-    box-shadow: 0 0 0 14px rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 12px rgba(255, 255, 255, 0);
   }
   100% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
   }
 }
 
-@keyframes radar-alert {
+@keyframes radar-pulse-alert {
   0% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8);
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.6);
   }
   70% {
-    transform: scale(1.1);
-    box-shadow: 0 0 0 18px rgba(239, 68, 68, 0);
+    transform: scale(1.08);
+    box-shadow: 0 0 0 14px rgba(244, 63, 94, 0);
   }
   100% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0);
   }
 }
 
 .pulse-radar-normal {
-  animation: radar-pulse 2.2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+  animation: radar-pulse-neutral 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
 
 .pulse-radar-alert {
-  animation: radar-alert 1.3s infinite cubic-bezier(0.4, 0, 0.6, 1);
+  animation: radar-pulse-alert 1.4s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
 
-/* Leaflet Map overrides for dark mode */
+/* Leaflet Map overrides for dark monochrome mode */
 .leaflet-container {
-  background: #0B111D !important;
+  background: #0d0d10 !important;
   font-family: inherit;
   border-radius: 0.75rem;
 }
 
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
-  background: #0F172A !important;
-  color: #F8FAFC !important;
-  border: 1px solid #334155;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+  background: #141417 !important;
+  color: #f4f4f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.8);
   border-radius: 0.75rem !important;
 }
 
